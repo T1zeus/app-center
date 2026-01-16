@@ -1,0 +1,63 @@
+.admin-organizations {
+  padding: 24px;
+  min-height: 100%;
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+  }
+
+  :global {
+    .table-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+
+      .ant-btn-link {
+        padding: 0 8px;
+        height: auto;
+        line-height: 1.5;
+        font-size: 14px;
+        color: #165dff;
+        transition: all 0.3s ease;
+
+        &:hover {
+          color: #4080ff;
+          background-color: rgba(22, 93, 255, 0.06);
+        }
+
+        &:active {
+          color: #0e42d2;
+        }
+
+        .anticon {
+          margin-right: 4px;
+          font-size: 14px;
+        }
+      }
+
+      .ant-btn-link.ant-btn-dangerous {
+        color: #ff4d4f;
+
+        &:hover {
+          color: #ff7875;
+          background-color: rgba(255, 77, 79, 0.06);
+        }
+
+        &:active {
+          color: #cf1322;
+        }
+      }
+    }
+  }
+}
+

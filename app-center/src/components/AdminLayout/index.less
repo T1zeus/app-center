@@ -1,0 +1,213 @@
+.admin-layout {
+  min-height: 100vh;
+
+  .admin-sider {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #001529 !important;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    z-index: 100;
+
+    .sider-logo {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.05);
+
+      .logo-img {
+        width: 40px;
+        height: 40px;
+        transition: all 0.3s ease;
+      }
+
+      .logo-text {
+        color: #fff;
+        margin-left: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        transition: all 0.3s ease;
+      }
+    }
+
+    &.ant-layout-sider-collapsed {
+      width: 80px !important;
+
+      .sider-logo {
+        padding: 0 16px;
+
+        .logo-img {
+          width: 32px;
+          height: 32px;
+        }
+      }
+    }
+
+    .admin-menu {
+      background: transparent;
+      border: none;
+      padding: 16px 8px;
+      margin-top: 8px;
+
+      .ant-menu-item {
+        margin: 6px 8px;
+        height: 52px;
+        line-height: 52px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 16px;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.15) !important;
+          color: #fff !important;
+        }
+
+        &.ant-menu-item-selected {
+          background: rgba(255, 255, 255, 0.25) !important;
+          color: #fff !important;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+          &::after {
+            display: none;
+          }
+        }
+
+        .ant-menu-item-icon {
+          font-size: 20px;
+          margin-right: 14px;
+        }
+      }
+    }
+
+    .sider-trigger {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: #002140 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #002c4d !important;
+        color: #fff;
+      }
+    }
+  }
+
+  .admin-content-layout {
+    margin-left: 240px;
+    background: #f0f2f5;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  &.ant-layout-sider-collapsed {
+    .admin-content-layout {
+      margin-left: 80px;
+    }
+  }
+
+  .admin-header {
+    padding: 0 32px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    height: 64px;
+    line-height: 64px;
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #262626;
+      letter-spacing: 0.5px;
+    }
+
+    .header-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 4px 12px;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #f5f5f5;
+      }
+
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 2px solid #0958d9;
+        box-shadow: 0 2px 4px rgba(9, 88, 217, 0.2);
+      }
+
+      .user-name {
+        font-size: 14px;
+        color: #595959;
+        font-weight: 500;
+      }
+
+      .user-dropdown-icon {
+        font-size: 12px;
+        color: #8c8c8c;
+        transition: transform 0.3s ease;
+      }
+    }
+  }
+
+  .admin-content {
+    margin: 24px;
+    min-height: calc(100vh - 112px);
+
+    .content-wrapper {
+      padding: 24px;
+      min-height: 360px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+  }
+
+  .admin-footer {
+    text-align: center;
+    background: #fff;
+    color: #8c8c8c;
+    padding: 16px 0;
+    border-top: 1px solid #f0f0f0;
+  }
+}
+

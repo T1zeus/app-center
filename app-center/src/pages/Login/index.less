@@ -1,0 +1,130 @@
+.login {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+
+    // 移动端调整
+    @media (max-width: 767px) {
+        padding: 16px;
+        min-height: 100vh;
+    }
+
+    @media (max-width: 480px) {
+        padding: 12px;
+    }
+
+    .title {
+        font-size: 46px;
+        margin-bottom: 50px;
+        font-weight: bold;
+        text-align: center;
+        color: #262626;
+
+        // 平板端
+        @media (max-width: 992px) and (min-width: 768px) {
+            font-size: 40px;
+            margin-bottom: 40px;
+        }
+
+        // 移动端
+        @media (max-width: 767px) {
+            font-size: 32px;
+            margin-bottom: 32px;
+        }
+
+        // 小屏手机
+        @media (max-width: 480px) {
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+
+        // 超小屏手机
+        @media (max-width: 360px) {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    }
+
+    .login-form {
+        border-radius: 10px;
+        width: 100%;
+        max-width: 400px;
+        padding: 40px;
+        box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 10px;
+        position: relative;
+        background: white;
+        box-sizing: border-box;
+
+        // 平板端
+        @media (max-width: 992px) and (min-width: 768px) {
+            max-width: 380px;
+            padding: 36px;
+        }
+
+        // 移动端
+        @media (max-width: 767px) {
+            max-width: 100%;
+            padding: 32px 24px;
+            border-radius: 8px;
+        }
+
+        // 小屏手机
+        @media (max-width: 480px) {
+            padding: 24px 20px;
+        }
+
+        // 超小屏手机
+        @media (max-width: 360px) {
+            padding: 20px 16px;
+        }
+
+        .login-bg {
+            position: absolute;
+            background-color: #165dff;
+            border-bottom-right-radius: 50%;
+            border-top-left-radius: 50%;
+            bottom: 0;
+            filter: blur(5px);
+            height: 100px;
+            left: 0;
+            opacity: .3;
+            width: 100px;
+
+            // 移动端调整
+            @media (max-width: 767px) {
+                height: 80px;
+                width: 80px;
+            }
+
+            @media (max-width: 480px) {
+                height: 60px;
+                width: 60px;
+            }
+        }
+
+        // 登录按钮样式
+        :global {
+            .ant-btn {
+                height: 44px;
+                font-size: 16px;
+                font-weight: 500;
+
+                // 移动端调整
+                @media (max-width: 767px) {
+                    height: 40px;
+                    font-size: 15px;
+                }
+
+                @media (max-width: 480px) {
+                    height: 38px;
+                    font-size: 14px;
+                }
+            }
+        }
+    }
+}
+

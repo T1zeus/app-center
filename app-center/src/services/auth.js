@@ -1,0 +1,230 @@
+import api from './api';
+
+/**
+ * OAuth2 认证服务
+ * 参考后端文档：OAuth2 授权端点和令牌端点
+ */
+export const authService = {
+    /**
+     * 获取授权 URL
+     * @param {Object} params - 授权参数
+     * @param {string} params.client_id - 组织唯一标识（可选）
+     * @param {string} params.redirect_uri - 重定向URI（可选）
+     * @param {string} params.state - 状态参数，用于CSRF防护（可选）
+     * @param {string} params.scope - 授权范围，默认 "profile"（可选）
+     * @returns {string} 授权 URL
+     */
+    getAuthorizeUrl: (params = {}) => {
+        const {
+            client_id,
+            redirect_uri = window.location.origin + '/login',
+            state = generateState(),
+            scope = 'profile',
+        } = params;
+
+        // 保存 state 到 sessionStorage 和 localStorage，用于回调时验证
+        // 使用两种存储方式，防止跳转后 sessionStorage 丢失
+        sessionStorage.setItem('oauth_state', state);
+        localStorage.setItem('oauth_state', state);
+        
+        // 保存 redirect_uri，确保回调时使用相同的值
+        localStorage.setItem('oauth_redirect_uri', redirect_uri);
+
+        const queryParams = new URLSearchParams({
+            response_type: 'code',
+            ...(client_id && { client_id }),
+            ...(redirect_uri && { redirect_uri }),
+            state,
+            scope,
+        });
+
+        // 授权端点需要使用完整的后端 URL
+        // 从环境变量获取 baseURL，如果包含 /api/v1，则提取基础部分
+        let baseURL = import.meta.env.VITE_API_BASE_URL || 'http://10.1.2.237:19000/api/v1';
+        const apiPrefix = import.meta.env.VITE_API_PREFIX || '/api';
+        const apiVersion = import.meta.env.VITE_API_VERSION || '/v1';
+        
+        // 如果 baseURL 已经包含 /api/v1，则提取基础部分
+        if (baseURL.includes('/api/v1')) {
+            baseURL = baseURL.replace(/\/api\/v1.*$/, '');
+        }
+        
+        // 如果 baseURL 是完整 URL，直接使用；否则拼接
+        const authorizeBase = baseURL.startsWith('http') 
+            ? baseURL 
+            : `${window.location.protocol}//${window.location.host}${baseURL}`;
+        
+        return `${authorizeBase}${apiPrefix}${apiVersion}/auth/authorize?${queryParams.toString()}`;
+    },
+
+    /**
+     * 使用授权码换取 token
+     * @param {Object} params - Token 请求参数
+     * @param {string} params.code - 授权码（grant_type=authorization_code 时必填）
+     * @param {string} params.state - 状态参数（可选）
+     * @param {string} params.redirect_uri - 重定向URI（可选，但建议传递，必须与授权请求时一致）
+     * @returns {Promise} Token 响应
+     */
+    getTokenByCode: (params = {}) => {
+        const { code, state, redirect_uri } = params;
+        
+        const requestBody = {
+            grant_type: 'authorization_code',
+            code,
+            ...(state && { state }),
+            // 如果提供了 redirect_uri，则传递；否则使用默认值（与授权请求时保持一致）
+            ...(redirect_uri && { redirect_uri }),
+        };
+        
+        return api.post('/auth/token', requestBody);
+    },
+
+    /**
+     * 使用用户名密码直接登录（资源所有者密码凭据授权）
+     * @param {Object} params - 登录参数
+     * @param {string} params.username - 用户名
+     * @param {string} params.password - 密码
+     * @param {string} params.client_id - 客户端ID（可选）
+     * @param {string} params.scope - 授权范围，默认 "profile"（可选）
+     * @returns {Promise} Token 响应
+     */
+    loginWithPassword: (params = {}) => {
+        const { username, password, client_id, scope = 'profile' } = params;
+        
+        return api.post('/auth/token', {
+            grant_type: 'password',
+            username,
+            password,
+            ...(client_id && { client_id }),
+            scope,
+        });
+    },
+
+    /**
+     * 使用 refresh_token 刷新 token
+     * @param {string} refreshToken - 刷新令牌
+     * @returns {Promise} Token 响应
+     */
+    refreshToken: (refreshToken) => {
+        return api.post('/auth/token', {
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+        });
+    },
+
+    /**
+     * 保存 token 到 localStorage
+     * @param {Object} tokenData - Token 数据
+     * @param {string} tokenData.access_token - 访问令牌（或 tokenData.accessToken）
+     * @param {string} tokenData.refresh_token - 刷新令牌（可选）
+     * @param {number} tokenData.expires_in - 过期时间（秒）
+     */
+    saveToken: (tokenData) => {
+        // 兼容两种字段名：access_token 和 accessToken
+        const accessToken = tokenData.access_token || tokenData.accessToken;
+        const { refresh_token, expires_in } = tokenData;
+        
+        if (accessToken) {
+            localStorage.setItem('auth_token', accessToken);
+        }
+        
+        if (refresh_token) {
+            localStorage.setItem('refresh_token', refresh_token);
+        }
+        
+        // 计算过期时间戳
+        if (expires_in) {
+            const expiresAt = Date.now() + expires_in * 1000;
+            localStorage.setItem('token_expires_at', expiresAt.toString());
+        }
+    },
+
+    /**
+     * 清除 token
+     */
+    clearToken: () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('token_expires_at');
+        localStorage.removeItem('user_info');
+    },
+
+    /**
+     * 检查 token 是否过期
+     * @returns {boolean} 是否过期
+     */
+    isTokenExpired: () => {
+        const expiresAt = localStorage.getItem('token_expires_at');
+        if (!expiresAt) {
+            return true; // 如果没有过期时间，认为已过期
+        }
+        return Date.now() >= parseInt(expiresAt, 10);
+    },
+
+    /**
+     * 获取当前 token
+     * @returns {string|null} 访问令牌
+     */
+    getToken: () => {
+        return localStorage.getItem('auth_token');
+    },
+
+    /**
+     * 获取 refresh token
+     * @returns {string|null} 刷新令牌
+     */
+    getRefreshToken: () => {
+        return localStorage.getItem('refresh_token');
+    },
+
+    /**
+     * 检查是否已认证（有有效的 token）
+     * @returns {boolean} 是否已认证
+     */
+    isAuthenticated: () => {
+        const token = authService.getToken();
+        if (!token) {
+            return false;
+        }
+        return !authService.isTokenExpired();
+    },
+
+    /**
+     * 获取用户信息
+     * @returns {Object|null} 用户信息对象
+     */
+    getUserInfo: () => {
+        const userInfoStr = localStorage.getItem('user_info');
+        if (!userInfoStr) {
+            return null;
+        }
+        try {
+            return JSON.parse(userInfoStr);
+        } catch {
+            return null;
+        }
+    },
+
+    /**
+     * 保存用户信息到 localStorage
+     * @param {Object} userInfo - 用户信息对象
+     */
+    saveUserInfo: (userInfo) => {
+        if (userInfo) {
+            localStorage.setItem('user_info', JSON.stringify(userInfo));
+        } else {
+            localStorage.removeItem('user_info');
+        }
+    },
+};
+
+/**
+ * 生成随机 state 参数，用于 CSRF 防护
+ * @returns {string} 随机 state 字符串
+ */
+function generateState() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
