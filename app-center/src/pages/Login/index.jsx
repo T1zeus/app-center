@@ -330,17 +330,23 @@ function Login() {
   }
 
   const handleLogin = () => {
+    // 验证企业标识是否填写
+    const orgName = organization.trim();
+    if (!orgName) {
+      message.error('请输入企业标识');
+      return;
+    }
+    
     // 跳转到 OAuth2 授权端点
     const redirectUri = window.location.origin + '/login';
     
     // 根据 API 文档，client_id 是组织唯一标识
-    // 优先级：1. 输入框中的组织名称 2. URL 参数中的 organization
-    const orgName = organization.trim() || organizationFromUrl || null;
-    const clientId = orgName || null;
+    // 使用输入框中的企业标识（必填）
+    const clientId = orgName;
     
     const authorizeUrl = authService.getAuthorizeUrl({
-      // client_id: 组织唯一标识，不传则使用默认组织（built-in）
-      ...(clientId && { client_id: clientId }),
+      // client_id: 组织唯一标识，必填
+      client_id: clientId,
       // redirect_uri: 重定向URI，不传则使用默认值
       redirect_uri: redirectUri,
     });
@@ -355,12 +361,13 @@ function Login() {
       <div className='login-form'>
         <div style={{ marginBottom: 16 }}>
           <Input
-            placeholder="请输入企业名称（可选，不填则使用默认组织）"
+            placeholder="请输入企业标识（必填）"
             value={organization}
             onChange={(e) => setOrganization(e.target.value)}
             size="large"
             allowClear
             onPressEnter={handleLogin}
+            required
           />
         </div>
         <Button 
