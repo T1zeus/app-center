@@ -16,7 +16,7 @@ import LogoImg from '/vite.svg';
 import AvatarImg from '/avatar.png';
 import { authService } from '../../services/auth';
 import { userService } from '../../services/user';
-import { isSystemAdmin } from '../../utils/role';
+import { isSystemAdmin, isOrgAdmin, getUserRole, USER_ROLES } from '../../utils/role';
 import { showSuccess, handleApiError } from '../../utils/messageHelper';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -65,6 +65,15 @@ const ORG_ADMIN_MENU_ITEMS = [
   },
 ];
 
+// 员工菜单配置（只有应用中心）
+const EMPLOYEE_MENU_ITEMS = [
+  {
+    key: '/',
+    icon: <HomeOutlined />,
+    label: '应用中心',
+  },
+];
+
 
 function AdminLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -77,8 +86,16 @@ function AdminLayout({ children }) {
   const userInfo = authService.getUserInfo() || { name: '管理员' };
   
   // 根据用户角色动态显示菜单
-  const isSysAdmin = isSystemAdmin(userInfo);
-  const menuItems = isSysAdmin ? SYSTEM_ADMIN_MENU_ITEMS : ORG_ADMIN_MENU_ITEMS;
+  const userRole = getUserRole(userInfo);
+  let menuItems;
+  if (userRole === USER_ROLES.SYSTEM_ADMIN) {
+    menuItems = SYSTEM_ADMIN_MENU_ITEMS;
+  } else if (userRole === USER_ROLES.ORG_ADMIN) {
+    menuItems = ORG_ADMIN_MENU_ITEMS;
+  } else {
+    // 员工或其他情况，只显示应用中心
+    menuItems = EMPLOYEE_MENU_ITEMS;
+  }
 
   const handleMenuClick = ({ key }) => {
     navigate(key);

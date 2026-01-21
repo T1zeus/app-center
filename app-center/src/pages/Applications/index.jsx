@@ -48,7 +48,7 @@ function Applications() {
         page,
         page_size: pageSize,
         sort: '-name', // 按名称降序
-        is_shared: true, // 传递 is_shared=true 返回有实际意义的共享应用
+        // 移除 is_shared 筛选，显示所有应用
       });
       
       // 处理响应数据
@@ -239,6 +239,17 @@ function Applications() {
       key: 'clientId',
       width: 200,
       ellipsis: true,
+    },
+    {
+      title: '是否共享',
+      dataIndex: 'isShared',
+      key: 'isShared',
+      width: 120,
+      render: (isShared) => (
+        <Tag color={isShared ? 'green' : 'default'}>
+          {isShared ? '是' : '否'}
+        </Tag>
+      ),
     },
     {
       title: '操作',
@@ -443,8 +454,15 @@ function Applications() {
                 '-'
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="是否为共享应用">
-              {viewingApp.isShared ? '是' : '否'}
+            <Descriptions.Item label="是否共享">
+              <Space>
+                <Tag color={viewingApp.isShared ? 'green' : 'default'}>
+                  {viewingApp.isShared ? '是' : '否'}
+                </Tag>
+                <span style={{ color: '#999', fontSize: '12px' }}>
+                  {viewingApp.isShared ? '（可在应用大厅显示）' : '（不在应用大厅显示）'}
+                </span>
+              </Space>
             </Descriptions.Item>
           </Descriptions>
         ) : (

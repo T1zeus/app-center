@@ -54,7 +54,11 @@ function App() {
                   {/* 用户管理路由 - 系统管理员和企业管理员都可以访问 */}
                   <Route 
                     path="/users" 
-                    element={<Users />}
+                    element={
+                      <RoleProtectedRoute allowedRoles={['system_admin', 'org_admin']}>
+                        <Users />
+                      </RoleProtectedRoute>
+                    }
                   />
                   
                   {/* 默认重定向到首页 */}

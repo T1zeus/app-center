@@ -6,6 +6,7 @@ import { authService } from '../services/auth';
 export const USER_ROLES = {
   SYSTEM_ADMIN: 'system_admin',  // 系统管理员
   ORG_ADMIN: 'org_admin',        // 企业管理员
+  EMPLOYEE: 'employee',          // 员工
 };
 
 /**
@@ -14,6 +15,7 @@ export const USER_ROLES = {
 export const ROLE_DISPLAY_NAMES = {
   [USER_ROLES.SYSTEM_ADMIN]: '系统管理员',
   [USER_ROLES.ORG_ADMIN]: '企业管理员',
+  [USER_ROLES.EMPLOYEE]: '员工',
 };
 
 /**
@@ -29,37 +31,29 @@ function isAdminValue(isAdmin) {
 /**
  * 从用户信息中获取用户角色
  * @param {Object} userInfo - 用户信息对象
- * @returns {string|null} 用户角色（'system_admin' | 'org_admin' | null）
+ * @returns {string|null} 用户角色（'system_admin' | 'org_admin' | 'employee' | null）
  */
 export function getUserRole(userInfo) {
   if (!userInfo) {
     return null;
   }
   
-  // 方式1：优先判断 owner 字段，如果 owner 是 "built-in"，则为系统管理员（内建组织）
-  if (userInfo.owner === 'built-in') {
+  // 判断 is_admin 字段的值
+  const isAdmin = 'is_admin' in userInfo ? isAdminValue(userInfo.is_admin) : false;
+  const owner = userInfo.owner;
+  
+  // 规则1：owner 为 'built-in' 且 is_admin 为 true → 系统管理员
+  if (owner === 'built-in' && isAdmin) {
     return USER_ROLES.SYSTEM_ADMIN;
   }
   
-  // 方式2：通过 is_admin 字段判断
-  // 如果 is_admin 为 true，则为系统管理员
-  // 如果 is_admin 为 false 或不存在，则为企业管理员
-  if ('is_admin' in userInfo) {
-    if (isAdminValue(userInfo.is_admin)) {
-      return USER_ROLES.SYSTEM_ADMIN;
-    } else {
-      // is_admin 为 false，判断为企业管理员
-      return USER_ROLES.ORG_ADMIN;
-    }
-  }
-  
-  // 如果 is_admin 字段不存在，但有 owner 字段且不是 built-in，默认为企业管理员
-  if (userInfo.owner) {
+  // 规则2：owner 不为 'built-in' 且 is_admin 为 true → 企业管理员
+  if (owner && owner !== 'built-in' && isAdmin) {
     return USER_ROLES.ORG_ADMIN;
   }
   
-  // 如果既没有 owner 也没有 is_admin，默认为企业管理员（安全起见）
-  return USER_ROLES.ORG_ADMIN;
+  // 规则3：其他情况 → 员工
+  return USER_ROLES.EMPLOYEE;
 }
 
 /**
@@ -80,6 +74,16 @@ export function isSystemAdmin(userInfo = null) {
 export function isOrgAdmin(userInfo = null) {
   const user = userInfo || authService.getUserInfo();
   return getUserRole(user) === USER_ROLES.ORG_ADMIN;
+}
+
+/**
+ * 判断用户是否为员工
+ * @param {Object} userInfo - 用户信息对象（可选，如果不传则从 authService 获取）
+ * @returns {boolean} 是否为员工
+ */
+export function isEmployee(userInfo = null) {
+  const user = userInfo || authService.getUserInfo();
+  return getUserRole(user) === USER_ROLES.EMPLOYEE;
 }
 
 /**
