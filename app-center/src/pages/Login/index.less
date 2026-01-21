@@ -106,8 +106,24 @@
             }
         }
 
-        // 登录按钮样式
+        // 输入框和按钮样式
         :global {
+            .ant-input {
+                height: 44px;
+                font-size: 16px;
+
+                // 移动端调整
+                @media (max-width: 767px) {
+                    height: 40px;
+                    font-size: 15px;
+                }
+
+                @media (max-width: 480px) {
+                    height: 38px;
+                    font-size: 14px;
+                }
+            }
+
             .ant-btn {
                 height: 44px;
                 font-size: 16px;

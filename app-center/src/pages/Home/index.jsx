@@ -53,6 +53,7 @@ function Home() {
           page: 1,
           page_size: 100,
           sort: 'display_name',
+          is_shared: true, // 传递 is_shared=true 返回有实际意义的共享应用
         }, {
           signal: controller.signal,
         });

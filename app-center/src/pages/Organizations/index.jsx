@@ -168,25 +168,22 @@ function Organizations() {
           display_name: String(values.display_name || '').trim(),
         };
         
-        await organizationService.createOrganization(createParams);
+        const response = await organizationService.createOrganization(createParams);
         showSuccess('创建成功');
         
         // 显示自动生成的企业管理员账号信息
-        // 根据 README.md：用户名: <组织的name>-admin，密码: Admin@246
-        const adminUsername = `${createParams.name}-admin`;
-        const adminPassword = 'Admin@246';
-        setCreatedAdminInfo({
-          username: adminUsername,
-          password: adminPassword,
-        });
-        
-        // 延迟关闭弹窗，让用户看到管理员账号信息
-        setTimeout(() => {
-          setModalVisible(false);
-          form.resetFields();
-          setCreatedAdminInfo(null);
-          loadOrganizations(pagination.current, pagination.pageSize);
-        }, 3000);
+        // 根据 API 文档，响应中包含：name, admin_user_name, admin_user_password
+        // 企业管理员密码现在由后端随机生成
+        const responseData = response.data || {};
+        if (responseData.admin_user_name && responseData.admin_user_password) {
+          setCreatedAdminInfo({
+            username: responseData.admin_user_name,
+            password: responseData.admin_user_password,
+          });
+        } else {
+          // 如果后端没有返回管理员信息，显示错误提示
+          handleApiError('创建组织成功，但未获取到管理员账号信息', '警告');
+        }
       }
     } catch (error) {
       handleApiError(error, editingOrg ? '更新失败' : '创建失败');
@@ -265,14 +262,30 @@ function Organizations() {
         title={editingOrg ? '编辑组织' : '创建组织'}
         open={modalVisible}
         onCancel={() => {
+          const hadAdminInfo = !!createdAdminInfo;
           setModalVisible(false);
           form.resetFields();
           setEditingOrg(null);
           setCreatedAdminInfo(null);
+          if (hadAdminInfo) {
+            // 如果显示了管理员信息，关闭时刷新列表
+            loadOrganizations(pagination.current, pagination.pageSize);
+          }
         }}
-        onOk={() => form.submit()}
-        okText="确认"
-        cancelText="取消"
+        onOk={() => {
+          if (createdAdminInfo) {
+            // 如果显示了管理员信息，点击确认按钮关闭弹窗
+            setModalVisible(false);
+            form.resetFields();
+            setCreatedAdminInfo(null);
+            loadOrganizations(pagination.current, pagination.pageSize);
+          } else {
+            // 否则提交表单
+            form.submit();
+          }
+        }}
+        okText={createdAdminInfo ? '已了解' : '确认'}
+        cancelText="关闭"
         width={600}
         destroyOnHidden
       >
@@ -284,7 +297,7 @@ function Organizations() {
                 <p><strong>用户名：</strong>{createdAdminInfo.username}</p>
                 <p><strong>密码：</strong>{createdAdminInfo.password}</p>
                 <p style={{ color: '#ff4d4f', marginTop: 8 }}>
-                  请妥善保管此账号信息，3秒后自动关闭
+                  请妥善保管此账号信息，复制完成后可点击"已了解"或"关闭"按钮关闭
                 </p>
               </div>
             }
@@ -310,7 +323,7 @@ function Organizations() {
           >
             <Input 
               placeholder="请输入组织唯一标识符" 
-              disabled={!!editingOrg}
+              disabled={!!editingOrg || !!createdAdminInfo}
               maxLength={100}
             />
           </Form.Item>
@@ -324,6 +337,7 @@ function Organizations() {
           >
             <Input 
               placeholder="请输入组织名称" 
+              disabled={!!createdAdminInfo}
               maxLength={100}
             />
           </Form.Item>

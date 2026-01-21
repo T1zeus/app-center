@@ -5,7 +5,7 @@ import Forbidden from '../Forbidden';
 
 /**
  * 基于角色的路由保护组件
- * @param {Object} props - 组件属性
+ * @param {Object} props - 组件属
  * @param {React.ReactNode} props.children - 子组件
  * @param {string|Array<string>} props.allowedRoles - 允许访问的角色（'system_admin' | 'org_admin'）
  * @param {boolean} props.requireSystemAdmin - 是否要求系统管理员（快捷方式）

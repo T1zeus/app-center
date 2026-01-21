@@ -8,8 +8,8 @@ export const authService = {
     /**
      * 获取授权 URL
      * @param {Object} params - 授权参数
-     * @param {string} params.client_id - 组织唯一标识（可选）
-     * @param {string} params.redirect_uri - 重定向URI（可选）
+     * @param {string} params.client_id - 组织唯一标识（可选，不传则使用默认组织）
+     * @param {string} params.redirect_uri - 重定向URI（可选，不传则使用默认值）
      * @param {string} params.state - 状态参数，用于CSRF防护（可选）
      * @param {string} params.scope - 授权范围，默认 "profile"（可选）
      * @returns {string} 授权 URL
@@ -26,16 +26,13 @@ export const authService = {
         // 使用两种存储方式，防止跳转后 sessionStorage 丢失
         sessionStorage.setItem('oauth_state', state);
         localStorage.setItem('oauth_state', state);
-        
-        // 保存 redirect_uri，确保回调时使用相同的值
-        localStorage.setItem('oauth_redirect_uri', redirect_uri);
 
         const queryParams = new URLSearchParams({
-            response_type: 'code',
-            ...(client_id && { client_id }),
-            ...(redirect_uri && { redirect_uri }),
-            state,
-            scope,
+            response_type: 'code', // 固定为 'code'
+            ...(client_id && { client_id }), // 组织唯一标识，不传则使用默认组织
+            ...(redirect_uri && { redirect_uri }), // 重定向URI，不传则使用默认值
+            state, // 状态参数，用于 CSRF 防护
+            scope, // 授权范围，默认 'profile'
         });
 
         // 授权端点需要使用完整的后端 URL
@@ -62,18 +59,15 @@ export const authService = {
      * @param {Object} params - Token 请求参数
      * @param {string} params.code - 授权码（grant_type=authorization_code 时必填）
      * @param {string} params.state - 状态参数（可选）
-     * @param {string} params.redirect_uri - 重定向URI（可选，但建议传递，必须与授权请求时一致）
      * @returns {Promise} Token 响应
      */
     getTokenByCode: (params = {}) => {
-        const { code, state, redirect_uri } = params;
+        const { code, state } = params;
         
         const requestBody = {
             grant_type: 'authorization_code',
             code,
-            ...(state && { state }),
-            // 如果提供了 redirect_uri，则传递；否则使用默认值（与授权请求时保持一致）
-            ...(redirect_uri && { redirect_uri }),
+            ...(state && { state }), // 状态参数，可选
         };
         
         return api.post('/auth/token', requestBody);

@@ -48,6 +48,7 @@ function Applications() {
         page,
         page_size: pageSize,
         sort: '-name', // 按名称降序
+        is_shared: true, // 传递 is_shared=true 返回有实际意义的共享应用
       });
       
       // 处理响应数据
@@ -75,6 +76,7 @@ function Applications() {
         organization: app.organization || '-', // 所属组织
         clientId: app.client_id || '-', // 客户端ID
         redirectUris: app.redirect_uris || [], // 重定向URI列表
+        isShared: app.is_shared || false, // 是否为共享应用
       }));
 
       setApplications(appsData);
@@ -146,6 +148,7 @@ function Applications() {
         clientId: appData.client_id || '-',
         clientSecret: appData.client_secret || '-',
         redirectUris: appData.redirect_uris || [],
+        isShared: appData.is_shared || false, // 是否为共享应用
       };
       
       setViewingApp(appDetail);
@@ -439,6 +442,9 @@ function Applications() {
               ) : (
                 '-'
               )}
+            </Descriptions.Item>
+            <Descriptions.Item label="是否为共享应用">
+              {viewingApp.isShared ? '是' : '否'}
             </Descriptions.Item>
           </Descriptions>
         ) : (

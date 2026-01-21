@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Button, message, Spin } from 'antd';
+import { Button, message, Spin, Input } from 'antd';
 
 import './index.less';
 import { authService } from '../../services/auth';
@@ -13,8 +13,23 @@ function Login() {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
+  const organizationFromUrl = searchParams.get('organization'); // 从 URL 参数获取组织名称
+  const [organization, setOrganization] = useState(''); // 组织名称输入框的值
   const isProcessingRef = useRef(false); // 防止重复执行
   const processedCodeRef = useRef(null); // 记录已处理的 code，避免重复处理
+  
+  // 初始化组织名称：优先使用 URL 参数，其次使用之前登录用户的组织信息
+  useEffect(() => {
+    if (organizationFromUrl) {
+      setOrganization(organizationFromUrl);
+    } else {
+      // 尝试从之前登录的用户信息中获取组织
+      const previousUserInfo = authService.getUserInfo();
+      if (previousUserInfo && previousUserInfo.owner && previousUserInfo.owner !== 'built-in') {
+        setOrganization(previousUserInfo.owner);
+      }
+    }
+  }, [organizationFromUrl]);
 
   // 处理 OAuth2 回调
   useEffect(() => {
@@ -64,18 +79,10 @@ function Login() {
 
         try {
           // 使用授权码换取 token
-          // 注意：redirect_uri 必须与授权请求时完全一致（包括协议、域名、端口、路径）
-          // 从 localStorage 获取之前保存的 redirect_uri，确保完全一致
-          const savedRedirectUri = localStorage.getItem('oauth_redirect_uri');
-          const redirectUri = savedRedirectUri || window.location.origin + '/login';
-          
-          // 清除保存的 redirect_uri
-          localStorage.removeItem('oauth_redirect_uri');
-          
+          // 根据 API 文档，token 请求只需要 grant_type、code 和可选的 state
           const response = await authService.getTokenByCode({ 
             code, 
             ...(state && { state }), // state 是可选的
-            redirect_uri: redirectUri,
           });
           
           // 保存 token
@@ -326,10 +333,15 @@ function Login() {
     // 跳转到 OAuth2 授权端点
     const redirectUri = window.location.origin + '/login';
     
+    // 根据 API 文档，client_id 是组织唯一标识
+    // 优先级：1. 输入框中的组织名称 2. URL 参数中的 organization
+    const orgName = organization.trim() || organizationFromUrl || null;
+    const clientId = orgName || null;
+    
     const authorizeUrl = authService.getAuthorizeUrl({
-      // 可以根据需要传递 client_id
-      // client_id: 'your_client_id',
-      // 确保 redirect_uri 是完整的 URL
+      // client_id: 组织唯一标识，不传则使用默认组织（built-in）
+      ...(clientId && { client_id: clientId }),
+      // redirect_uri: 重定向URI，不传则使用默认值
       redirect_uri: redirectUri,
     });
     
@@ -341,6 +353,16 @@ function Login() {
     <div className='login'>
       <div className='title'>应用大平台</div>
       <div className='login-form'>
+        <div style={{ marginBottom: 16 }}>
+          <Input
+            placeholder="请输入企业名称（可选，不填则使用默认组织）"
+            value={organization}
+            onChange={(e) => setOrganization(e.target.value)}
+            size="large"
+            allowClear
+            onPressEnter={handleLogin}
+          />
+        </div>
         <Button 
           block 
           type="primary" 
