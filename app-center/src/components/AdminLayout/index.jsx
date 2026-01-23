@@ -8,6 +8,7 @@ import {
   KeyOutlined,
   LogoutOutlined,
   DownOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
 import { Layout, Menu, Dropdown, Modal, Form, Input, message } from 'antd';
 
@@ -43,6 +44,11 @@ const SYSTEM_ADMIN_MENU_ITEMS = [
     key: '/applications',
     icon: <AppstoreOutlined />,
     label: '应用管理',
+  },
+  {
+    key: '/subscriptions',
+    icon: <ShoppingCartOutlined />,
+    label: '订阅管理',
   },
   {
     key: '/users',
@@ -151,17 +157,25 @@ function AdminLayout({ children }) {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Modal.confirm({
       title: '确认退出',
       content: '确定要退出登录吗？',
       okText: '确认',
       cancelText: '取消',
-      onOk: () => {
-        // 使用 authService 清除所有认证信息
-        authService.clearToken();
-        message.success('已退出登录');
-        navigate('/login');
+      onOk: async () => {
+        try {
+          // 调用退出登录接口，会在应用平台、安全培训系统、鉴权网关都退出登录
+          await authService.logout();
+        } catch (error) {
+          // 即使退出登录接口调用失败，也清除本地 token 并跳转
+          console.error('退出登录接口调用失败:', error);
+        } finally {
+          // 清除本地认证信息
+          authService.clearToken();
+          message.success('已退出登录');
+          navigate('/login');
+        }
       },
     });
   };

@@ -17,17 +17,13 @@ export const appJump = {
             throw new Error('未登录，无法跳转到应用');
         }
         
-        // 检查 token 是否过期
+        // 检查 token 是否过期，如果过期则尝试刷新
         if (authService.isTokenExpired()) {
             // Token 已过期，尝试刷新
-            const refreshToken = authService.getRefreshToken();
-            if (!refreshToken) {
-                throw new Error('Token 已过期且无法刷新，请重新登录');
-            }
-            
+            // refresh_token 通过 Cookie 自动携带，无需手动传递
             try {
                 // 刷新 token
-                const response = await authService.refreshToken(refreshToken);
+                const response = await authService.refreshToken();
                 if (response.data) {
                     // 保存新的 token
                     authService.saveToken(response.data);
@@ -91,8 +87,14 @@ export const appJump = {
         
         const { appUrl, clientId, redirectUris } = appInfo;
         
+        // 如果没有 appUrl，尝试使用 redirectUris 的第一个作为跳转地址
+        let finalAppUrl = appUrl;
+        if (!finalAppUrl && redirectUris && redirectUris.length > 0) {
+            finalAppUrl = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
+        }
+        
         // 检查应用地址
-        if (!appUrl) {
+        if (!finalAppUrl) {
             throw new Error('该应用暂未配置跳转地址');
         }
         
@@ -113,10 +115,10 @@ export const appJump = {
         
         if (finalJumpMode === 'oauth2') {
             // 使用 OAuth2 授权码模式
-            return appJump.jumpWithOAuth2(appInfo, { openInNewTab });
+            return appJump.jumpWithOAuth2({ ...appInfo, appUrl: finalAppUrl }, { openInNewTab });
         } else {
             // 使用 URL 参数传递 token（降级方案）
-            return appJump.jumpWithTokenInUrl(appUrl, { openInNewTab });
+            return appJump.jumpWithTokenInUrl(finalAppUrl, { openInNewTab });
         }
     },
 
@@ -146,7 +148,7 @@ export const appJump = {
         
         // 确保 token 有效（如果过期则自动刷新）
         // OAuth2 模式下，后端会验证当前用户的 token，所以需要确保 token 有效
-        await appJump.ensureValidToken();
+        const token = await appJump.ensureValidToken();
         
         // 选择第一个重定向URI（或使用 appUrl）
         // 注意：redirect_uri 必须是应用配置的重定向URI之一
@@ -154,12 +156,21 @@ export const appJump = {
         
         // 生成 OAuth2 授权 URL
         // 注意：这里使用应用的 client_id，让后端知道是要跳转到哪个应用
-        // 后端会验证当前用户的 token，如果有效则直接返回授权码，实现 SSO
-        const authorizeUrl = authService.getAuthorizeUrl({
+        // 后端会验证当前用户的 token（通过 Cookie 或请求头），如果有效则直接返回授权码，实现 SSO
+        // 为了确保后端能识别已登录用户，我们在 URL 中添加 access_token 参数（后端会验证）
+        // 或者后端通过 Cookie 中的 refresh_token 来验证用户身份
+        let authorizeUrl = authService.getAuthorizeUrl({
             client_id: clientId,
             redirect_uri: redirectUri || appUrl, // 使用应用配置的 redirect_uri
             scope: 'profile',
         });
+        
+        // 在授权 URL 中添加 access_token 参数，让后端知道当前用户已登录
+        // 后端会验证这个 token，如果有效则直接返回授权码，实现 SSO
+        // 注意：这不是标准的 OAuth2 流程，但可以实现 SSO
+        // 如果后端支持通过 Cookie 验证，可以移除这个参数
+        const separator = authorizeUrl.includes('?') ? '&' : '?';
+        authorizeUrl = `${authorizeUrl}${separator}access_token=${encodeURIComponent(token)}`;
         
         // 保存应用信息，用于回调后跳转
         if (appUrl) {
@@ -186,10 +197,6 @@ export const appJump = {
     jumpFromAppList: async (app, options = {}) => {
         const { name, appUrl } = app;
         
-        if (!appUrl) {
-            throw new Error('该应用暂未配置跳转地址');
-        }
-        
         // 如果应用列表中没有 clientId，尝试获取应用详情
         let appInfo = { ...app };
         
@@ -203,11 +210,17 @@ export const appJump = {
                     ...app,
                     clientId: appData.client_id,
                     redirectUris: appData.redirect_uris || [],
+                    // 如果列表中没有 appUrl，使用详情中的 app_url 或 redirect_uris 的第一个
+                    appUrl: appUrl || appData.app_url || (appData.redirect_uris && appData.redirect_uris.length > 0 ? appData.redirect_uris[0] : null),
                 };
             } catch (error) {
                 console.warn('获取应用详情失败，使用 URL 参数传递方式:', error);
-                // 如果获取详情失败，使用 URL 参数传递方式
-                return appJump.jumpWithTokenInUrl(appUrl, options);
+                // 如果获取详情失败，且没有 appUrl，尝试使用 redirectUris
+                const fallbackUrl = appUrl || (app.redirectUris && app.redirectUris.length > 0 ? app.redirectUris[0] : null);
+                if (!fallbackUrl) {
+                    throw new Error('该应用暂未配置跳转地址');
+                }
+                return appJump.jumpWithTokenInUrl(fallbackUrl, options);
             }
         }
         

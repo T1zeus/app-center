@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Organizations from './pages/Organizations';
 import Applications from './pages/Applications';
 import Users from './pages/Users';
+import Subscriptions from './pages/Subscriptions';
 
 function App() {
   return (
@@ -47,6 +48,14 @@ function App() {
                     element={
                       <RoleProtectedRoute requireSystemAdmin>
                         <Applications />
+                      </RoleProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/subscriptions" 
+                    element={
+                      <RoleProtectedRoute requireSystemAdmin>
+                        <Subscriptions />
                       </RoleProtectedRoute>
                     } 
                   />

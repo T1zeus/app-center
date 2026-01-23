@@ -96,13 +96,12 @@ export const authService = {
 
     /**
      * 使用 refresh_token 刷新 token
-     * @param {string} refreshToken - 刷新令牌
+     * 注意：refresh_token 通过 Cookie 传递，无需在请求体中传递
      * @returns {Promise} Token 响应
      */
-    refreshToken: (refreshToken) => {
+    refreshToken: () => {
         return api.post('/auth/token', {
             grant_type: 'refresh_token',
-            refresh_token: refreshToken,
         });
     },
 
@@ -209,6 +208,15 @@ export const authService = {
         } else {
             localStorage.removeItem('user_info');
         }
+    },
+
+    /**
+     * 退出登录
+     * 调用后会在应用平台、安全培训系统、鉴权网关都退出登录
+     * @returns {Promise} 退出登录响应
+     */
+    logout: () => {
+        return api.post('/auth/logout');
     },
 };
 

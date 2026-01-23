@@ -178,6 +178,19 @@ function Applications() {
           display_name: values.display_name,
         };
         
+        // 处理重定向URI列表（如果用户填写了）
+        if (values.redirect_uris) {
+          const redirectUris = values.redirect_uris
+            .split('\n')
+            .map(uri => uri.trim())
+            .filter(uri => uri.length > 0);
+          
+          // 如果有有效的URI，则添加到更新参数中
+          if (redirectUris.length > 0) {
+            updateParams.redirect_uris = redirectUris;
+          }
+        }
+        
         await applicationService.updateApplication(editingApp.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
@@ -357,12 +370,32 @@ function Applications() {
             name="redirect_uris"
             label="重定向URI列表"
             rules={[
-              { required: true, message: '请输入至少一个重定向URI' },
+              { 
+                required: !editingApp, 
+                message: '请输入至少一个重定向URI' 
+              },
+              {
+                validator: (_, value) => {
+                  if (!value || !value.trim()) {
+                    // 编辑模式下允许为空
+                    if (editingApp) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('请输入至少一个重定向URI'));
+                  }
+                  // 验证是否有有效的URI
+                  const uris = value.split('\n').map(uri => uri.trim()).filter(uri => uri.length > 0);
+                  if (uris.length === 0) {
+                    return Promise.reject(new Error('请输入至少一个重定向URI'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
-            tooltip="每行一个URI，例如：http://localhost:3000/callback"
+            tooltip={editingApp ? "每行一个URI，留空则不更新重定向URI列表" : "每行一个URI，例如：http://localhost:3000/callback"}
           >
             <TextArea 
-              placeholder="请输入重定向URI，每行一个&#10;例如：&#10;http://localhost:3000/callback&#10;https://example.com/callback"
+              placeholder={editingApp ? "请输入重定向URI，每行一个，留空则不更新&#10;例如：&#10;http://localhost:3000/callback&#10;https://example.com/callback" : "请输入重定向URI，每行一个&#10;例如：&#10;http://localhost:3000/callback&#10;https://example.com/callback"}
               rows={4}
             />
           </Form.Item>

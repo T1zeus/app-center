@@ -13,39 +13,20 @@ function ProtectedRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // 检查是否已登录，如果过期则尝试刷新
-    const checkAuth = async () => {
+    // 检查是否已登录
+    // 注意：不再主动检查 token 过期，改为在 401 错误时自动刷新
+    // 只要有 token 就认为已登录，让后续的 API 请求在 401 时自动刷新
+    const checkAuth = () => {
       const token = authService.getToken();
-      const isExpired = authService.isTokenExpired();
       
-      if (token && !isExpired) {
-        // Token 有效，直接通过
+      if (token) {
+        // 有 token，认为已登录（即使过期，也会在 401 时自动刷新）
         setIsAuthenticated(true);
-        setIsChecking(false);
-        return;
+      } else {
+        // 没有 token，需要登录
+        setIsAuthenticated(false);
       }
       
-      // Token 过期或不存在，尝试刷新
-      const refreshToken = authService.getRefreshToken();
-      if (refreshToken && isExpired) {
-        try {
-          // 尝试刷新 token
-          const response = await authService.refreshToken(refreshToken);
-          if (response.data) {
-            authService.saveToken(response.data);
-            setIsAuthenticated(true);
-            setIsChecking(false);
-            return;
-          }
-        } catch (error) {
-          console.error('刷新 token 失败:', error);
-          // 刷新失败，清除 token
-          authService.clearToken();
-        }
-      }
-      
-      // 无法刷新或没有 refresh_token，需要登录
-      setIsAuthenticated(false);
       setIsChecking(false);
     };
 
