@@ -51,7 +51,9 @@ export const authService = {
             ? baseURL 
             : `${window.location.protocol}//${window.location.host}${baseURL}`;
         
-        return `${authorizeBase}${apiPrefix}${apiVersion}/auth/authorize?${queryParams.toString()}`;
+        const finalUrl = `${authorizeBase}${apiPrefix}${apiVersion}/auth/authorize?${queryParams.toString()}`;
+        
+        return finalUrl;
     },
 
     /**

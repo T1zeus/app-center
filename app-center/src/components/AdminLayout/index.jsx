@@ -172,9 +172,9 @@ function AdminLayout({ children }) {
           console.error('退出登录接口调用失败:', error);
         } finally {
           // 清除本地认证信息
-          authService.clearToken();
-          message.success('已退出登录');
-          navigate('/login');
+        authService.clearToken();
+        message.success('已退出登录');
+        navigate('/login');
         }
       },
     });

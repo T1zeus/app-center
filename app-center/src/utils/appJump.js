@@ -2,6 +2,16 @@ import { authService } from '../services/auth';
 import { applicationService } from '../services/application';
 
 /**
+ * 生成随机 state 参数，用于 CSRF 防护
+ * @returns {string} 随机 state 字符串
+ */
+function generateState() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
  * 应用跳转工具
  * 支持 OAuth2 授权码模式和 URL 参数传递两种方式实现 SSO
  */
@@ -146,29 +156,114 @@ export const appJump = {
             throw new Error('应用未配置重定向URI，无法使用 OAuth2 模式跳转');
         }
         
+        // ========== SSO（单点登录）实现原理 ==========
+        // 
+        // 目标：用户在应用大平台登录后，跳转到其他应用（如安全培训系统）时，
+        //      能够自动登录，无需重新输入账号密码。
+        //
+        // 实现方式：
+        // 1. 用户在应用大平台登录后，refresh_token 存储在 HttpOnly Cookie 中
+        // 2. 跳转到其他应用时，调用 /auth/authorize 接口
+        // 3. 后端检查用户是否已登录（通过以下方式之一）：
+        //    
+        //    方案A（推荐）：后端通过 Cookie 中的 refresh_token 验证用户身份
+        //    - 如果 refresh_token 有效且用户已登录 → 直接返回授权码（不跳转登录页），实现 SSO
+        //    - 如果 refresh_token 无效或未登录 → 跳转到 Casdoor 登录页面
+        //    
+        //    方案B（备选）：后端通过 URL 参数中的 access_token 验证用户身份
+        //    - 前端在授权 URL 中添加 access_token 参数
+        //    - 后端验证这个 token，如果有效则直接返回授权码，实现 SSO
+        //    - 注意：这不是标准的 OAuth2 流程，但可以实现 SSO
+        //
+        // 当前实现：同时使用两种方案，确保 SSO 能够工作
+        // - 浏览器会自动携带 Cookie 中的 refresh_token（方案A）
+        // - 同时在 URL 中添加 access_token 参数（方案B，作为备选）
+        
         // 确保 token 有效（如果过期则自动刷新）
-        // OAuth2 模式下，后端会验证当前用户的 token，所以需要确保 token 有效
+        // 这样后端验证时，token 一定是有效的
         const token = await appJump.ensureValidToken();
+        
+        if (!token) {
+            throw new Error('无法获取有效的 access_token，请重新登录');
+        }
         
         // 选择第一个重定向URI（或使用 appUrl）
         // 注意：redirect_uri 必须是应用配置的重定向URI之一
         const redirectUri = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
         
+        // ========== 关键：使用目标应用的授权端点 ==========
+        // 目标应用（如安全培训系统）有自己的授权端点，应该调用目标应用的授权端点
+        // 而不是应用大平台的授权端点
+        // 
+        // 从 appUrl 推断目标应用的后端地址
+        // 例如：如果 appUrl 是 http://localhost:5174，后端可能是 http://10.1.2.237:17890
+        let targetBackendBaseUrl = null;
+        
+        // 应用后端地址映射（根据应用名称或 appUrl 推断）
+        // 如果 appUrl 包含 localhost:5174，说明是安全培训系统，后端是 17890
+        if (appUrl && appUrl.includes('localhost:5174')) {
+            targetBackendBaseUrl = 'http://10.1.2.237:17890';
+        }
+        // 如果应用信息中有后端地址字段，使用它
+        else if (appInfo.authBaseUrl || appInfo.backendUrl) {
+            targetBackendBaseUrl = appInfo.authBaseUrl || appInfo.backendUrl;
+        }
+        // 如果 appUrl 是其他地址，尝试从 appUrl 推断后端地址
+        else if (appUrl) {
+            try {
+                const appUrlObj = new URL(appUrl);
+                // 如果 appUrl 的 hostname 是 localhost 或 127.0.0.1，使用固定 IP
+                if (appUrlObj.hostname === 'localhost' || appUrlObj.hostname === '127.0.0.1') {
+                    // 根据端口映射后端地址（需要根据实际情况调整）
+                    // 安全培训系统前端 5174 -> 后端 17890
+                    if (appUrlObj.port === '5174') {
+                        targetBackendBaseUrl = 'http://10.1.2.237:17890';
+                    }
+                    // 可以添加更多映射
+                } else {
+                    // 如果 appUrl 是 IP 地址，尝试推断后端地址
+                    // 这里可以根据实际情况调整
+                }
+            } catch (e) {
+                // URL 解析失败，忽略
+                console.warn('[SSO] 无法从 appUrl 推断后端地址:', appUrl, e);
+            }
+        }
+        
         // 生成 OAuth2 授权 URL
-        // 注意：这里使用应用的 client_id，让后端知道是要跳转到哪个应用
-        // 后端会验证当前用户的 token（通过 Cookie 或请求头），如果有效则直接返回授权码，实现 SSO
-        // 为了确保后端能识别已登录用户，我们在 URL 中添加 access_token 参数（后端会验证）
-        // 或者后端通过 Cookie 中的 refresh_token 来验证用户身份
-        let authorizeUrl = authService.getAuthorizeUrl({
-            client_id: clientId,
-            redirect_uri: redirectUri || appUrl, // 使用应用配置的 redirect_uri
-            scope: 'profile',
-        });
+        let authorizeUrl;
+        if (targetBackendBaseUrl) {
+            // 使用目标应用的授权端点
+            const state = generateState();
+            // 保存 state 到 sessionStorage 和 localStorage
+            sessionStorage.setItem('oauth_state', state);
+            localStorage.setItem('oauth_state', state);
+            
+            const queryParams = new URLSearchParams({
+                response_type: 'code',
+                client_id: clientId,
+                redirect_uri: redirectUri || appUrl,
+                scope: 'profile',
+                state,
+            });
+            authorizeUrl = `${targetBackendBaseUrl}/api/v1/auth/authorize?${queryParams.toString()}`;
+        } else {
+            // 使用应用大平台的授权端点（默认行为，但可能不正确）
+            // 注意：这里应该改为使用目标应用的授权端点
+            authorizeUrl = authService.getAuthorizeUrl({
+                client_id: clientId,
+                redirect_uri: redirectUri || appUrl,
+                scope: 'profile',
+            });
+        }
         
         // 在授权 URL 中添加 access_token 参数，让后端知道当前用户已登录
-        // 后端会验证这个 token，如果有效则直接返回授权码，实现 SSO
-        // 注意：这不是标准的 OAuth2 流程，但可以实现 SSO
-        // 如果后端支持通过 Cookie 验证，可以移除这个参数
+        // 后端验证这个 token：
+        // - 如果有效 → 直接返回授权码（不跳转登录页），实现 SSO
+        // - 如果无效 → 跳转到 Casdoor 登录页面
+        // 
+        // 注意：这是备选方案，如果后端支持通过 Cookie 验证（方案A），
+        //      后端应该优先使用 Cookie 验证，URL 参数作为备选
         const separator = authorizeUrl.includes('?') ? '&' : '?';
         authorizeUrl = `${authorizeUrl}${separator}access_token=${encodeURIComponent(token)}`;
         

@@ -72,17 +72,23 @@ function Home() {
         }
         
         // 转换数据格式
-        const appsData = responseData.map((app) => ({
-          id: app.name,
-          name: app.name,
-          displayName: app.display_name || app.name,
-          description: app.description || '暂无描述',
-          icon: app.icon_url || null,
-          appUrl: app.app_url || null,
-          organization: app.organization || '-',
-          clientId: app.client_id || null,
-          redirectUris: app.redirect_uris || [],
-        }));
+        const appsData = responseData
+          .map((app) => ({
+            id: app.name,
+            name: app.name,
+            displayName: app.display_name || app.name,
+            description: app.description || '暂无描述',
+            icon: app.icon_url || null,
+            appUrl: app.app_url || null,
+            organization: app.organization || '-',
+            clientId: app.client_id || null,
+            redirectUris: app.redirect_uris || [],
+          }))
+          // 过滤掉"默认应用"
+          .filter((app) => {
+            const displayName = app.displayName || '';
+            return displayName !== '默认应用';
+          });
         
         // 只要组件还在挂载状态，就更新数据
         // 即使 signal 被 abort，只要请求已经成功完成，就应该更新数据

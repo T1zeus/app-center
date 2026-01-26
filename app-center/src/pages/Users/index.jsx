@@ -11,6 +11,7 @@ import {
   Select,
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined } from '@ant-design/icons';
+import { Tag } from 'antd';
 
 import './index.less';
 import { userService } from '../../services/user';
@@ -111,12 +112,27 @@ function Users() {
       }
       
       // 转换数据格式
-      const usersData = responseData.map((user) => ({
-        id: user.id || user.name, // 用户ID或用户名作为唯一标识
-        name: user.name, // 用户名
-        displayName: user.display_name || user.name, // 昵称
-        owner: user.owner || '-', // 所属组织
-      }));
+      const usersData = responseData.map((user) => {
+        // 判断 is_admin 字段的值（兼容多种格式：布尔值、数字、字符串）
+        // 注意：需要明确检查，不能使用 || false，因为 0 也是有效值
+        let isAdmin = false;
+        if ('is_admin' in user) {
+          const adminValue = user.is_admin;
+          isAdmin = adminValue === true || adminValue === 1 || adminValue === 'true' || adminValue === '1';
+        } else if ('isAdmin' in user) {
+          // 兼容驼峰命名
+          const adminValue = user.isAdmin;
+          isAdmin = adminValue === true || adminValue === 1 || adminValue === 'true' || adminValue === '1';
+        }
+        
+        return {
+          id: user.id || user.name, // 用户ID或用户名作为唯一标识
+          name: user.name, // 用户名
+          displayName: user.display_name || user.name, // 昵称
+          owner: user.owner || '-', // 所属组织
+          is_admin: isAdmin, // 是否为管理员
+        };
+      });
 
       setUsers(usersData);
       setPagination({
@@ -291,6 +307,21 @@ function Users() {
       dataIndex: 'owner',
       key: 'owner',
       width: 150,
+    },
+    {
+      title: '角色',
+      dataIndex: 'is_admin',
+      key: 'is_admin',
+      width: 120,
+      render: (isAdmin) => {
+        // 判断 is_admin 的值（可能是布尔值、数字或字符串）
+        const isAdminValue = isAdmin === true || isAdmin === 1 || isAdmin === 'true' || isAdmin === '1';
+        return (
+          <Tag color={isAdminValue ? 'blue' : 'default'}>
+            {isAdminValue ? '管理员' : '普通用户'}
+          </Tag>
+        );
+      },
     },
     {
       title: '操作',

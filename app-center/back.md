@@ -2,11 +2,7 @@
 
 ## 认证鉴权模块
 
-本系统基于 OAuth2 授权码模式实现统一认证，采用双 token 模式：
-- **access_token**: 访问令牌，有效期 1 小时，用于访问受保护接口
-- **refresh_token**: 刷新令牌，有效期 7 天，存储在 HttpOnly Cookie 中，用于刷新 access_token
-
-完整的登录流程和前端集成示例请参考 `<后端地址>/demo/index.html` 演示页面。
+本系统基于 OAuth2 授权码模式实现统一认证，完整的登录流程和前端集成示例请参考 `<后端地址>/demo/index.html` 演示页面。
 
 ### 接口列表
 
@@ -269,7 +265,7 @@ axios.get('/api/user', {
 
 ## 订阅管理模块
 
-管理组织对应用的订阅关系，用于控制组织对特定应用的访问权限和有效期。系统管理员可以通过订阅管理为组织开通特定应用的访问权限，开通订阅后，该组织下的用户即可登录并使用对应的应用。
+管理组织对应用的订阅关系，用于控制组织对特定应用的访问权限和有效期。
 
 ### 接口列表
 
@@ -280,157 +276,12 @@ axios.get('/api/user', {
 | `/subscription`                | GET   | 获取订阅列表(支持分页和多条件筛选) |
 | `/subscription/{owner}/{plan}` | PATCH | 更新订阅信息，可修改有效期和状态   |
 
-### 接口详情
-
-#### 1. 创建订阅 (POST /subscription)
-
-为组织开通指定应用的订阅，创建订阅后，该组织下的用户即可登录并使用对应的应用。
-
-**请求参数** (Body, application/json):
-
-| 参数        | 类型              | 说明                                   | 必填 |
-| ----------- | ----------------- | -------------------------------------- | ---- |
-| `plan`      | `string`          | 订阅计划(应用唯一标识符)               | 是   |
-| `owner`     | `string`          | 组织唯一标识符                         | 是   |
-| `start_time`| `string` (gtime.Time) | 开始时间                           | 是   |
-| `end_time`  | `string` (gtime.Time) | 结束时间                           | 是   |
-
-**请求示例**:
-```json
-{
-  "plan": "my-app",
-  "owner": "my-org",
-  "start_time": "2024-01-01T00:00:00Z",
-  "end_time": "2024-12-31T23:59:59Z"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 0,
-  "message": "string",
-  "data": {}
-}
-```
-
-#### 2. 获取订阅列表 (GET /subscription)
-
-获取订阅列表，支持分页和多条件筛选。
-
-**查询参数**:
-
-| 参数         | 类型              | 说明                                                      | 必填 | 默认值 |
-| ------------ | ----------------- | --------------------------------------------------------- | ---- | ------ |
-| `page`       | `integer`         | 页码                                                      | 否   | 1      |
-| `page_size`  | `integer`         | 每页数量                                                  | 否   | 10     |
-| `sort`       | `string`          | 排序，多个排序条件用英文逗号分隔，-表示降序，如: `-name`  | 否   | -      |
-| `owner`      | `string`          | 组织唯一标识符                                            | 否   | -      |
-| `plan`       | `string`          | 订阅计划(应用唯一标识符)                                  | 否   | -      |
-| `start_time` | `string` (gtime.Time) | 开始时间                                              | 否   | -      |
-| `end_time`   | `string` (gtime.Time) | 结束时间                                              | 否   | -      |
-| `state`      | `enum<string>`    | 状态: `Active`(激活)、`Suspended`(停用)                  | 否   | -      |
-
-**响应示例**:
-```json
-{
-  "code": 0,
-  "message": "string",
-  "data": {
-    "page_info": {
-      "page": 1,
-      "page_size": 10,
-      "total": 100,
-      "page_count": 10
-    },
-    "rows": [
-      {
-        "name": "subscription-id",
-        "owner": "my-org",
-        "plan": "my-app",
-        "display_name": "我的订阅",
-        "start_time": "2024-01-01T00:00:00Z",
-        "end_time": "2024-12-31T23:59:59Z",
-        "state": "Active"
-      }
-    ]
-  }
-}
-```
-
-#### 3. 获取订阅详情 (GET /subscription/{owner}/{plan})
-
-获取指定组织和应用的订阅详情。
-
-**路径参数**:
-
-| 参数    | 类型     | 说明                     | 必填 |
-| ------- | -------- | ------------------------ | ---- |
-| `owner` | `string` | 组织唯一标识符           | 是   |
-| `plan`  | `string` | 订阅计划(应用唯一标识符) | 是   |
-
-**响应示例**:
-```json
-{
-  "code": 0,
-  "message": "string",
-  "data": {
-    "name": "subscription-id",
-    "owner": "my-org",
-    "plan": "my-app",
-    "display_name": "我的订阅",
-    "start_time": "2024-01-01T00:00:00Z",
-    "end_time": "2024-12-31T23:59:59Z",
-    "state": "Active"
-  }
-}
-```
-
-#### 4. 更新订阅 (PATCH /subscription/{owner}/{plan})
-
-更新订阅信息，可修改有效期和状态。
-
-**路径参数**:
-
-| 参数    | 类型     | 说明                     | 必填 |
-| ------- | -------- | ------------------------ | ---- |
-| `owner` | `string` | 组织唯一标识符           | 是   |
-| `plan`  | `string` | 订阅计划(应用唯一标识符) | 是   |
-
-**请求参数** (Body, application/json):
-
-| 参数         | 类型              | 说明                      | 必填 |
-| ------------ | ----------------- | ------------------------- | ---- |
-| `start_time` | `string` (gtime.Time) | 开始时间              | 否   |
-| `end_time`   | `string` (gtime.Time) | 结束时间              | 否   |
-| `state`      | `enum<string>`    | 状态: `Active`(激活)、`Suspended`(停用) | 否   |
-
-**请求示例**:
-```json
-{
-  "start_time": "2024-01-01T00:00:00Z",
-  "end_time": "2024-12-31T23:59:59Z",
-  "state": "Active"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 0,
-  "message": "string",
-  "data": {}
-}
-```
-
 **⚠️ 说明**:
 
 - `owner` 为组织唯一标识符，`plan` 为应用唯一标识符
 - 订阅状态包括: `Active`(激活)、`Suspended`(停用)
 - 系统管理员可手动修改企业订阅状态实现订阅期内禁用功能
 - 创建订阅时需指定开始时间和结束时间，结束时间必须晚于开始时间
-- **开通订阅后，该组织下的用户即可通过 OAuth2 授权码模式登录并使用对应的应用**
-- 所有接口需携带 `Authorization: Bearer {access_token}` 请求头
 
 ---
 
@@ -446,22 +297,7 @@ axios.get('/api/user', {
    → 获得 client_id 和 client_secret
 ```
 
-### 2. 订阅管理
-
-```plaintext
-① 系统管理员为组织开通应用订阅 (POST /subscription)
-   → 指定组织(owner)、应用(plan)、开始时间和结束时间
-   → 开通订阅后，该组织下的用户即可登录并使用对应应用
-
-② 系统管理员可查询订阅列表 (GET /subscription)
-   → 支持按组织、应用、状态、时间范围等条件筛选
-
-③ 系统管理员可更新订阅信息 (PATCH /subscription/{owner}/{plan})
-   → 可修改有效期或状态(激活/停用)
-   → 停用订阅后，该组织下的用户将无法登录对应应用
-```
-
-### 3. 用户管理
+### 2. 用户管理
 
 ```plaintext
 ① 企业管理员添加用户 (POST /user)
@@ -470,15 +306,13 @@ axios.get('/api/user', {
 ② 用户首次登录后修改密码 (POST /user/{name}/password)
 ```
 
-### 4. 前端应用集成
+### 3. 前端应用集成
 
 ```plaintext
 ① 用户点击登录 → 重定向到 /auth/authorize
 ② 在 Casdoor 完成登录
 ③ 获取授权码 → 调用 /auth/token 换取令牌
 ④ 使用访问令牌调用受保护接口
-
-注意: 用户所属组织必须已开通对应应用的订阅，否则无法登录
 
 详细实现请参考: /demo/index.html
 ```
