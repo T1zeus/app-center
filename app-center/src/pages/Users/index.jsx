@@ -126,10 +126,10 @@ function Users() {
         }
         
         return {
-          id: user.id || user.name, // 用户ID或用户名作为唯一标识
-          name: user.name, // 用户名
-          displayName: user.display_name || user.name, // 昵称
-          owner: user.owner || '-', // 所属组织
+        id: user.id || user.name, // 用户ID或用户名作为唯一标识
+        name: user.name, // 用户名
+        displayName: user.display_name || user.name, // 昵称
+        owner: user.owner || '-', // 所属组织
           is_admin: isAdmin, // 是否为管理员
         };
       });
@@ -169,7 +169,11 @@ function Users() {
     setEditingUser(record);
     try {
       // 获取最新的用户详情
-      const response = await userService.getUserDetail(record.name);
+      const owner = record.owner && record.owner !== '-' ? record.owner : null;
+      if (!owner) {
+        throw new Error('无法获取用户所属组织');
+      }
+      const response = await userService.getUserDetail(owner, record.name);
       const userData = response.data || {};
       
       // 转换数据格式用于表单回填
@@ -203,7 +207,11 @@ function Users() {
     
     try {
       // 获取最新的用户详情
-      const response = await userService.getUserDetail(record.name);
+      const owner = record.owner && record.owner !== '-' ? record.owner : null;
+      if (!owner) {
+        throw new Error('无法获取用户所属组织');
+      }
+      const response = await userService.getUserDetail(owner, record.name);
       const userData = response.data || {};
       
       // 转换数据格式
@@ -237,11 +245,15 @@ function Users() {
       if (editingUser) {
         // 更新用户
         // 根据API文档：只能更新 display_name
+        const owner = editingUser.owner && editingUser.owner !== '-' ? editingUser.owner : null;
+        if (!owner) {
+          throw new Error('无法获取用户所属组织');
+        }
         const updateParams = {
           display_name: values.display_name,
         };
         
-        await userService.updateUser(editingUser.name, updateParams);
+        await userService.updateUser(owner, editingUser.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
         form.resetFields();
@@ -273,13 +285,17 @@ function Users() {
     
     try {
       // 管理员重置密码时，不需要 old_password
+      const owner = resettingPasswordUser.owner && resettingPasswordUser.owner !== '-' ? resettingPasswordUser.owner : null;
+      if (!owner) {
+        throw new Error('无法获取用户所属组织');
+      }
       const passwordParams = {
         new_password: values.new_password,
         // old_password 可选，管理员重置时可不传
         ...(values.old_password && { old_password: values.old_password }),
       };
       
-      await userService.changePassword(resettingPasswordUser.name, passwordParams);
+      await userService.changePassword(owner, resettingPasswordUser.name, passwordParams);
       showSuccess('密码修改成功');
       setPasswordModalVisible(false);
       passwordForm.resetFields();

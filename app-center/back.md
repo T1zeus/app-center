@@ -48,23 +48,23 @@ sequenceDiagram
 
     前端应用->>鉴权网关: 调用业务 API<br/>Authorization: Bearer {access_token}
     鉴权网关->>前端应用: 返回 401 Unauthorized<br/>(token 已过期)
-    
+  
     前端应用->>前端应用: 检测到 401 错误
     前端应用->>请求队列: 将当前请求加入挂起队列
     前端应用->>前端应用: 检查是否正在刷新 token
-    
+  
     alt 未在刷新中
         前端应用->>前端应用: 设置刷新中状态
         前端应用->>鉴权网关: POST /auth/token<br/>(grant_type=refresh_token)<br/>Cookie: refresh_token
         鉴权网关->>Casdoor: 验证 refresh_token
-        
+      
         alt refresh_token 有效
             Casdoor->>鉴权网关: 返回用户信息
             鉴权网关->>鉴权网关: 生成新的 access_token 和 refresh_token
             鉴权网关->>前端应用: 返回新的 access_token<br/>更新 refresh_token Cookie
             前端应用->>前端应用: 更新本地 access_token
             前端应用->>前端应用: 清除刷新中状态
-            
+          
             loop 重试所有挂起的请求
                 前端应用->>请求队列: 取出挂起的请求
                 请求队列->>鉴权网关: 使用新 token 重新发起请求
@@ -142,28 +142,28 @@ axios.interceptors.response.use(
         });
 
         const { access_token } = response.data;
-        
+      
         // 更新本地存储的 token
         localStorage.setItem('access_token', access_token);
-        
+      
         // 更新默认请求头
         axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-        
+      
         // 重试所有挂起的请求
         pendingRequests.forEach(callback => callback());
         pendingRequests = [];
-        
+      
         // 重试当前请求
         originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
         return axios(originalRequest);
-        
+      
       } catch (refreshError) {
         // refresh_token 也失效了，清除所有状态并跳转登录页
         pendingRequests = [];
         localStorage.removeItem('access_token');
         window.location.href = '/login';
         return Promise.reject(refreshError);
-        
+      
       } finally {
         isRefreshing = false;
       }
@@ -247,13 +247,13 @@ axios.get('/api/user', {
 
 ### 接口列表
 
-| 接口                      | 方法  | 说明                                               |
-| ------------------------- | ----- | -------------------------------------------------- |
-| `/user`                 | POST  | 创建用户，需指定用户名、昵称、所属组织和密码       |
-| `/user/{name}`          | GET   | 获取用户详情                                       |
-| `/user`                 | GET   | 获取用户列表(支持分页)                             |
-| `/user/{name}`          | PATCH | 更新用户信息                                       |
-| `/user/{name}/password` | POST  | 修改密码，用户需提供旧密码，管理员重置密码时可省略 |
+| 接口                              | 方法  | 说明                                               |
+| --------------------------------- | ----- | -------------------------------------------------- |
+| `/user`                         | POST  | 创建用户，需指定用户名、昵称、所属组织和密码       |
+| `/user/{owner}/{name}`          | GET   | 获取用户详情，需指定所属组织和用户名               |
+| `/user`                         | GET   | 获取用户列表(支持分页)                             |
+| `/user/{owner}/{name}`          | PATCH | 更新用户信息，需指定所属组织和用户名               |
+| `/user/{owner}/{name}/password` | POST  | 修改密码，需指定所属组织和用户名，用户需提供旧密码，管理员重置密码时可省略 |
 
 **⚠️ 说明**:
 

@@ -204,8 +204,8 @@ function Home() {
                   xs={24} 
                   sm={12} 
                   md={8} 
-                  lg={6} 
-                  xl={6}
+                  lg={5} 
+                  xl={4}
                 >
                   <Card
                     className="app-card"
@@ -225,14 +225,6 @@ function Home() {
                   >
                     <Card.Meta
                       title={app.displayName}
-                      description={
-                        <div>
-                          <div className="app-card-desc">{app.description}</div>
-                          {app.organization && app.organization !== '-' && (
-                            <div className="app-card-org">{app.organization}</div>
-                          )}
-                        </div>
-                      }
                     />
                   </Card>
                 </Col>

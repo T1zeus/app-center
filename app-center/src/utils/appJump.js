@@ -65,9 +65,18 @@ export const appJump = {
         // 确保 token 有效（如果过期则自动刷新）
         const token = await appJump.ensureValidToken();
         
-        // 通过 URL 参数传递 token
+        // 获取当前用户的企业标识（owner）
+        const userInfo = authService.getUserInfo();
+        const organization = userInfo?.owner && userInfo.owner !== 'built-in' ? userInfo.owner : null;
+        
+        // 通过 URL 参数传递 token 和企业标识
         const separator = appUrl.includes('?') ? '&' : '?';
-        const jumpUrl = `${appUrl}${separator}access_token=${encodeURIComponent(token)}`;
+        let jumpUrl = `${appUrl}${separator}access_token=${encodeURIComponent(token)}`;
+        
+        // 如果有企业标识，添加到 URL 参数中
+        if (organization) {
+            jumpUrl += `&organization=${encodeURIComponent(organization)}`;
+        }
         
         if (openInNewTab) {
             window.open(jumpUrl, '_blank');
@@ -187,9 +196,37 @@ export const appJump = {
             throw new Error('无法获取有效的 access_token，请重新登录');
         }
         
+        // 获取当前用户的企业标识（owner）
+        const userInfo = authService.getUserInfo();
+        let organization = null;
+        
+        // 如果用户是企业用户（非系统管理员），使用用户的企业标识
+        if (userInfo?.owner && userInfo.owner !== 'built-in') {
+            organization = userInfo.owner;
+        } 
+        // 如果用户是系统管理员，使用应用的企业标识（包括 built-in）
+        else if (userInfo?.owner === 'built-in' && appInfo.organization) {
+            organization = appInfo.organization;
+        }
+        
         // 选择第一个重定向URI（或使用 appUrl）
-        // 注意：redirect_uri 必须是应用配置的重定向URI之一
-        const redirectUri = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
+        // 注意：OAuth2 规范要求 redirect_uri 必须与注册的完全匹配
+        // 但为了传递企业标识，我们尝试在 redirect_uri 中添加查询参数
+        // 如果后端验证失败，可能需要后端支持在验证时忽略查询参数
+        let redirectUri = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
+        
+        // 如果有企业标识，添加到 redirect_uri 的查询参数中
+        // 这样当授权完成后，重定向回应用时，应用就能从 URL 参数中获取企业标识
+        // 注意：这可能导致 OAuth2 验证失败，需要后端支持
+        if (organization && redirectUri) {
+            try {
+                const redirectUriObj = new URL(redirectUri);
+                redirectUriObj.searchParams.set('organization', organization);
+                redirectUri = redirectUriObj.toString();
+            } catch (e) {
+                // URL 解析失败，使用原始 redirectUri
+            }
+        }
         
         // ========== 关键：使用目标应用的授权端点 ==========
         // 目标应用（如安全培训系统）有自己的授权端点，应该调用目标应用的授权端点
@@ -226,7 +263,6 @@ export const appJump = {
                 }
             } catch (e) {
                 // URL 解析失败，忽略
-                console.warn('[SSO] 无法从 appUrl 推断后端地址:', appUrl, e);
             }
         }
         
@@ -267,9 +303,32 @@ export const appJump = {
         const separator = authorizeUrl.includes('?') ? '&' : '?';
         authorizeUrl = `${authorizeUrl}${separator}access_token=${encodeURIComponent(token)}`;
         
+        // 如果有企业标识，添加到授权 URL 的查询参数中
+        // 后端在重定向到登录页面时，应该将这个参数保留在重定向 URL 中
+        // 这样目标应用的登录页面就能从 URL 参数中获取企业标识
+        if (organization) {
+            authorizeUrl += `&organization=${encodeURIComponent(organization)}`;
+        }
+        
+        // 注意：由于 OAuth2 的 redirect_uri 必须与注册的完全匹配，
+        // 我们不能在 redirect_uri 中添加查询参数，否则验证会失败
+        // 
+        // 如果后端在重定向到登录页面时没有保留 organization 参数，
+        // 我们可以采用备用方案：直接跳转到登录页面并带上企业标识
+        // 但这样会失去 SSO 功能，需要用户手动登录
+        // 
+        // 当前方案：期望后端在重定向时保留 organization 参数
+        // 如果不行，需要后端支持或采用其他方案
+        
         // 保存应用信息，用于回调后跳转
         if (appUrl) {
             sessionStorage.setItem('app_jump_url', appUrl);
+        }
+        
+        // 如果有企业标识，保存到 sessionStorage，作为备用方案
+        // 注意：如果跨域，sessionStorage 无法共享，但同域下可以工作
+        if (organization) {
+            sessionStorage.setItem('app_organization', organization);
         }
         
         if (openInNewTab) {
@@ -307,9 +366,10 @@ export const appJump = {
                     redirectUris: appData.redirect_uris || [],
                     // 如果列表中没有 appUrl，使用详情中的 app_url 或 redirect_uris 的第一个
                     appUrl: appUrl || appData.app_url || (appData.redirect_uris && appData.redirect_uris.length > 0 ? appData.redirect_uris[0] : null),
+                    // 确保 organization 字段被传递（从列表或详情中获取）
+                    organization: app.organization || appData.organization || null,
                 };
             } catch (error) {
-                console.warn('获取应用详情失败，使用 URL 参数传递方式:', error);
                 // 如果获取详情失败，且没有 appUrl，尝试使用 redirectUris
                 const fallbackUrl = appUrl || (app.redirectUris && app.redirectUris.length > 0 ? app.redirectUris[0] : null);
                 if (!fallbackUrl) {

@@ -19,11 +19,12 @@ export const userService = {
 
     /**
      * 获取用户详情
+     * @param {string} owner - 所属组织
      * @param {string} name - 用户名
      * @returns {Promise} 用户详情响应
      */
-    getUserDetail: (name) => {
-        return api.get(`/user/${name}`);
+    getUserDetail: (owner, name) => {
+        return api.get(`/user/${owner}/${name}`);
     },
 
     /**
@@ -41,25 +42,27 @@ export const userService = {
 
     /**
      * 更新用户信息
+     * @param {string} owner - 所属组织
      * @param {string} name - 用户名
      * @param {Object} params - 更新参数
      * @param {string} params.display_name - 昵称（必需）
      * @returns {Promise} 更新响应
      */
-    updateUser: (name, params = {}) => {
-        return api.patch(`/user/${name}`, params);
+    updateUser: (owner, name, params = {}) => {
+        return api.patch(`/user/${owner}/${name}`, params);
     },
 
     /**
      * 修改用户密码
+     * @param {string} owner - 所属组织
      * @param {string} name - 用户名
      * @param {Object} params - 密码参数
      * @param {string} params.old_password - 旧密码（可选，管理员重置密码时可不传）
      * @param {string} params.new_password - 新密码（必需，6-100 位）
      * @returns {Promise} 修改密码响应
      */
-    changePassword: (name, params = {}) => {
-        return api.post(`/user/${name}/password`, params);
+    changePassword: (owner, name, params = {}) => {
+        return api.post(`/user/${owner}/${name}/password`, params);
     },
 };
 

@@ -136,15 +136,20 @@ function AdminLayout({ children }) {
 
   const handleChangePassword = async (values) => {
     try {
-      // 获取当前用户名
+      // 获取当前用户名和组织
       const currentUser = userInfo.name;
+      const owner = userInfo.owner;
       if (!currentUser) {
         handleApiError('无法获取当前用户信息', '操作失败');
         return;
       }
+      if (!owner) {
+        handleApiError('无法获取用户所属组织', '操作失败');
+        return;
+      }
 
       // 调用 API 修改密码
-      await userService.changePassword(currentUser, {
+      await userService.changePassword(owner, currentUser, {
         old_password: values.oldPassword,
         new_password: values.newPassword,
       });
