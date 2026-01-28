@@ -137,6 +137,7 @@ class Request {
           statusText: response.statusText,
           data: responseData,
           message: responseData?.message || `HTTP error! status: ${response.status}`,
+          config: requestConfig, // 添加请求配置，供错误拦截器使用
         };
         
         // 抛出错误，让 catch 块处理

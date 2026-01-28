@@ -174,7 +174,7 @@ function AdminLayout({ children }) {
           await authService.logout();
         } catch (error) {
           // 即使退出登录接口调用失败，也清除本地 token 并跳转
-          console.error('退出登录接口调用失败:', error);
+          // 静默处理错误，不显示错误消息
         } finally {
           // 清除本地认证信息
         authService.clearToken();

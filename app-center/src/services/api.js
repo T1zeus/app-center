@@ -18,7 +18,9 @@ const api = new Request({
 
 // Token 刷新标志，防止并发刷新
 let isRefreshing = false;
-let refreshPromise = null; 
+let refreshPromise = null;
+// 请求队列：存储等待 token 刷新完成的请求
+let pendingRequests = []; 
 
 // 请求拦截器 - 添加认证 token 和统一路径处理
 api.useRequestInterceptor(async (config) => {
@@ -135,53 +137,90 @@ const errorInterceptor = async (error) => {
           break;
         }
         
-        // 如果正在刷新，等待刷新完成
+        // 获取原始请求配置
+        const originalRequest = error.config;
+        
+        // 如果请求配置不存在，无法重试
+        if (!originalRequest) {
+          // 没有请求配置，可能是网络错误或其他情况，直接抛出错误
+          break;
+        }
+        
+        // 如果请求已经重试过，不再处理
+        if (originalRequest._retry) {
+          // 已经重试过仍然失败，说明 refresh_token 已失效
+          authService.clearToken();
+          message.error('登录已过期，请重新登录');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1000);
+          break;
+        }
+        
+        // 如果正在刷新，将请求加入队列等待刷新完成
         if (isRefreshing && refreshPromise) {
-          try {
-            await refreshPromise;
-            // 刷新成功，不跳转登录，让请求重试
-            message.info('Token 已刷新，请重试');
-            return;
-          } catch {
-            // 刷新失败，继续执行清除 token 逻辑
-          }
+          return new Promise((resolve, reject) => {
+            pendingRequests.push((token) => {
+              // 使用新 token 更新请求头
+              originalRequest.headers = {
+                ...originalRequest.headers,
+                'Authorization': `Bearer ${token}`,
+              };
+              originalRequest._retry = true;
+              // 重新发起请求
+              api.request(originalRequest).then(resolve).catch(reject);
+            });
+          });
         }
         
         // 如果还没有开始刷新，尝试刷新
         // refresh_token 通过 Cookie 自动携带，无需手动传递
         if (!isRefreshing) {
+          isRefreshing = true;
+          refreshPromise = authService.refreshToken()
+            .then(response => {
+              if (response.data) {
+                authService.saveToken(response.data);
+                const newToken = response.data.access_token || response.data.accessToken;
+                
+                // 处理所有挂起的请求
+                pendingRequests.forEach(callback => {
+                  callback(newToken);
+                });
+                pendingRequests = [];
+                
+                // 使用新 token 更新原始请求头并重试
+                originalRequest.headers = {
+                  ...originalRequest.headers,
+                  'Authorization': `Bearer ${newToken}`,
+                };
+                originalRequest._retry = true;
+                
+                // 重新发起原始请求
+                return api.request(originalRequest);
+              }
+              throw new Error('刷新 token 失败');
+            })
+            .catch(refreshError => {
+              // 刷新失败，清除所有状态
+              pendingRequests = [];
+              authService.clearToken();
+              message.error('登录已过期，请重新登录');
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 1000);
+              throw refreshError;
+            })
+            .finally(() => {
+              isRefreshing = false;
+              refreshPromise = null;
+            });
+          
+          // 返回刷新和重试的结果
           try {
-            isRefreshing = true;
-            refreshPromise = authService.refreshToken()
-              .then(response => {
-                if (response.data) {
-                  authService.saveToken(response.data);
-                  isRefreshing = false;
-                  refreshPromise = null;
-                  // 返回新的 access_token
-                  const newToken = response.data.access_token || response.data.accessToken;
-                  return newToken;
-                }
-                throw new Error('刷新 token 失败');
-              })
-              .catch(error => {
-                isRefreshing = false;
-                refreshPromise = null;
-                throw error;
-              });
-            
-            await refreshPromise;
-            // 刷新成功，不跳转登录，让请求重试
-            message.info('Token 已刷新，请重试');
-            return;
+            return await refreshPromise;
           } catch (refreshError) {
-            // 刷新失败，清除 token 并跳转登录
-            authService.clearToken();
-            message.error('登录已过期，请重新登录');
-            // 延迟跳转，避免在组件卸载时跳转
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 1000);
+            // 刷新失败，继续抛出错误
             break;
           }
         }

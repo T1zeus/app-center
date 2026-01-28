@@ -107,31 +107,33 @@ function Login() {
               
               authService.saveUserInfo(userInfo);
             } else {
-              // Token 中没有 user_info，尝试从 JWT token 中解析用户名，然后调用用户详情接口
-              // 尝试解析 JWT token 获取用户名
+              // Token 中没有 user_info，尝试从 JWT token 中解析用户名和 owner，然后调用用户详情接口
+              // 尝试解析 JWT token 获取用户名和 owner
               let username = null;
+              let owner = null;
               try {
                 const accessToken = tokenData.access_token || tokenData.accessToken;
                 if (accessToken) {
                   // JWT token 格式：header.payload.signature
                   const payload = JSON.parse(atob(accessToken.split('.')[1]));
                   username = payload.name || payload.sub;
+                  owner = payload.owner;
                 }
               } catch (err) {
                 // 解析失败，忽略
               }
               
-              // 如果有用户名，调用用户详情接口获取完整信息
-              if (username) {
+              // 如果有用户名和 owner，调用用户详情接口获取完整信息
+              if (username && owner) {
                 try {
-                  const userDetailResponse = await userService.getUserDetail(username);
+                  const userDetailResponse = await userService.getUserDetail(owner, username);
                   
                   if (userDetailResponse && userDetailResponse.data) {
                     // 保存完整的用户信息，包括 owner 和 is_admin
                     const fullUserInfo = {
                       name: userDetailResponse.data.name || username,
                       display_name: userDetailResponse.data.display_name || userDetailResponse.data.name || username,
-                      owner: userDetailResponse.data.owner || undefined, // 保存 owner 字段
+                      owner: userDetailResponse.data.owner || owner, // 保存 owner 字段
                       is_admin: userDetailResponse.data.is_admin === true || 
                                userDetailResponse.data.is_admin === 1 || 
                                userDetailResponse.data.is_admin === 'true' || 
@@ -146,35 +148,24 @@ function Login() {
                     throw new Error('用户详情接口返回数据为空');
                   }
                 } catch (err) {
-                  // 如果获取失败，尝试从 JWT token 中提取 owner
-                  try {
-                    const accessToken = tokenData.access_token || tokenData.accessToken;
-                    if (accessToken) {
-                      const payload = JSON.parse(atob(accessToken.split('.')[1]));
-                      
-                      // 使用 JWT token 中的信息
-                      const fallbackUserInfo = {
-                        name: username || '管理员',
-                        owner: payload.owner || undefined,
-                        is_admin: payload.isAdmin === true || payload.isAdmin === 1 || payload.isAdmin === 'true' || payload.isAdmin === '1',
-                      };
-                      
-                      authService.saveUserInfo(fallbackUserInfo);
-                    }
-                  } catch (jwtErr) {
-                    // 如果都失败，使用默认值
-                    authService.saveUserInfo({
-                      name: username || '管理员',
-                      is_admin: false,
-                    });
-                  }
+                  // 如果获取失败，使用 JWT token 中的信息
+                  const fallbackUserInfo = {
+                    name: username || '管理员',
+                    owner: owner || undefined,
+                    is_admin: false, // 默认不是管理员，因为无法从详情接口获取
+                  };
+                  
+                  authService.saveUserInfo(fallbackUserInfo);
                 }
               } else {
-                // 如果无法获取用户名，使用默认值
-                authService.saveUserInfo({
-                  name: '管理员',
+                // 如果无法获取用户名或 owner，使用 JWT token 中的信息或默认值
+                const fallbackUserInfo = {
+                  name: username || '管理员',
+                  owner: owner || undefined,
                   is_admin: false, // 默认不是管理员
-                });
+                };
+                
+                authService.saveUserInfo(fallbackUserInfo);
               }
             }
             
