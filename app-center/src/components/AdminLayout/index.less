@@ -1,6 +1,69 @@
 .admin-layout {
   min-height: 100vh;
 
+  // 移动端布局
+  &.mobile-layout {
+    .admin-content-layout {
+      margin-left: 0 !important;
+    }
+  }
+
+  // 移动端顶部栏
+  .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #001529;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+    .mobile-menu-trigger {
+      color: #fff;
+      font-size: 20px;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mobile-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+
+      .logo-img {
+        width: 32px;
+        height: 32px;
+      }
+
+      .logo-text {
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+    }
+
+    .header-user {
+      .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid #0958d9;
+      }
+    }
+  }
+
   .admin-sider {
     position: fixed;
     left: 0;
@@ -13,6 +76,11 @@
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
     z-index: 100;
+
+    // 移动端隐藏
+    @media (max-width: 767px) {
+      display: none;
+    }
 
     .sider-logo {
       height: 64px;
@@ -126,6 +194,18 @@
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
+
+    // 移动端调整
+    @media (max-width: 767px) {
+      margin-left: 0;
+      padding-top: 56px; // 为移动端顶部栏留出空间
+    }
+
+    // 横屏适配（移动端横屏）
+    @media (max-width: 900px) and (orientation: landscape) {
+      margin-left: 0;
+      padding-top: 48px; // 横屏时顶部栏可以更小
+    }
   }
 
   &.ant-layout-sider-collapsed {
@@ -146,6 +226,11 @@
     z-index: 10;
     height: 64px;
     line-height: 64px;
+
+    // 移动端隐藏
+    @media (max-width: 767px) {
+      display: none;
+    }
 
     .header-title {
       font-size: 20px;
@@ -193,12 +278,40 @@
     margin: 24px;
     min-height: calc(100vh - 112px);
 
+    // 移动端调整
+    @media (max-width: 767px) {
+      margin: 12px 8px;
+      min-height: calc(100vh - 72px);
+    }
+
+    @media (max-width: 480px) {
+      margin: 8px 4px;
+    }
+
+    // 横屏适配（移动端横屏）
+    @media (max-width: 900px) and (orientation: landscape) {
+      margin: 12px 8px;
+      min-height: calc(100vh - 56px); // 横屏时顶部栏高度较小
+    }
+
     .content-wrapper {
       padding: 24px;
       min-height: 360px;
       background: #fff;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+      @media (max-width: 767px) {
+        padding: 16px;
+        border-radius: 6px;
+        min-height: 300px;
+      }
+
+      @media (max-width: 480px) {
+        padding: 12px;
+        border-radius: 4px;
+        min-height: 200px;
+      }
     }
   }
 
@@ -208,6 +321,43 @@
     color: #8c8c8c;
     padding: 16px 0;
     border-top: 1px solid #f0f0f0;
+
+    // 移动端调整
+    @media (max-width: 767px) {
+      padding: 12px 8px;
+      font-size: 12px;
+    }
+  }
+}
+
+// 响应式断点
+@media (max-width: 1200px) {
+  .admin-layout {
+    .admin-sider {
+      width: 200px !important;
+    }
+
+    &.ant-layout-sider-collapsed {
+      .admin-content-layout {
+        margin-left: 80px;
+      }
+    }
+
+    .admin-content-layout {
+      margin-left: 200px;
+    }
+  }
+}
+
+@media (max-width: 992px) {
+  .admin-layout {
+    .admin-sider {
+      width: 180px !important;
+    }
+
+    .admin-content-layout {
+      margin-left: 180px;
+    }
   }
 }
 

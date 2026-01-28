@@ -249,9 +249,17 @@ function Organizations() {
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
-            showTotal: (total) => `共 ${total} 条记录`,
+            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             onChange: (page, pageSize) => {
+              setPagination(prev => ({ ...prev, current: page, pageSize }));
               loadOrganizations(page, pageSize);
+            },
+            onShowSizeChange: (current, size) => {
+              setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
+              loadOrganizations(1, size);
             },
           }}
         />

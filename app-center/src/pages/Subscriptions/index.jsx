@@ -70,6 +70,7 @@ function Subscriptions() {
       return;
     }
     // 筛选条件变化时，重置到第一页并重新加载
+    setPagination(prev => ({ ...prev, current: 1 }));
     loadSubscriptions(1, pagination.pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterOwner, filterPlan, filterState]);
@@ -393,8 +394,8 @@ function Subscriptions() {
 
         {/* 筛选条件 */}
         <Card size="small" style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col span={6}>
+          <Row gutter={[16, 8]}>
+            <Col xs={24} sm={12} md={6}>
               <Select
                 placeholder="选择组织"
                 allowClear
@@ -408,7 +409,7 @@ function Subscriptions() {
                 options={organizations}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={24} sm={12} md={6}>
               <Select
                 placeholder="选择应用"
                 allowClear
@@ -422,7 +423,7 @@ function Subscriptions() {
                 options={applications}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={24} sm={12} md={6}>
               <Select
                 placeholder="选择状态"
                 allowClear
@@ -438,7 +439,7 @@ function Subscriptions() {
                 ]}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={24} sm={12} md={6}>
               <Button 
                 onClick={() => {
                   setFilterOwner(undefined);
@@ -446,6 +447,7 @@ function Subscriptions() {
                   setFilterState(undefined);
                   setPagination(prev => ({ ...prev, current: 1 }));
                 }}
+                style={{ width: '100%' }}
               >
                 清除筛选
               </Button>
@@ -463,9 +465,17 @@ function Subscriptions() {
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
-            showTotal: (total) => `共 ${total} 条记录`,
+            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             onChange: (page, pageSize) => {
+              setPagination(prev => ({ ...prev, current: page, pageSize }));
               loadSubscriptions(page, pageSize);
+            },
+            onShowSizeChange: (current, size) => {
+              setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
+              loadSubscriptions(1, size);
             },
           }}
         />

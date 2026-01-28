@@ -9,8 +9,9 @@ import {
   LogoutOutlined,
   DownOutlined,
   ShoppingCartOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
-import { Layout, Menu, Dropdown, Modal, Form, Input, message } from 'antd';
+import { Layout, Menu, Dropdown, Modal, Form, Input, message, Button } from 'antd';
 
 import './index.less';
 import LogoImg from '/vite.svg';
@@ -83,10 +84,28 @@ const EMPLOYEE_MENU_ITEMS = [
 
 function AdminLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [passwordForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 监听窗口大小变化
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // 移动端自动折叠侧边栏
+      if (mobile) {
+        setCollapsed(true);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    // 初始化时检查
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 获取用户信息
   const userInfo = authService.getUserInfo() || { name: '管理员' };
@@ -185,43 +204,71 @@ function AdminLayout({ children }) {
     });
   };
 
+  // 移动端菜单项（转换为 Dropdown 格式）
+  const mobileMenuItems = menuItems.map(item => ({
+    key: item.key,
+    icon: item.icon,
+    label: item.label,
+  }));
+
   return (
-    <Layout className={`admin-layout ${collapsed ? 'ant-layout-sider-collapsed' : ''}`}>
-      <Sider 
-        collapsible 
-        collapsed={collapsed} 
-        onCollapse={(value) => setCollapsed(value)}
-        width={240}
-        className="admin-sider"
-        trigger={null}
-      >
-        <div className="sider-logo">
-          <img src={LogoImg} alt="logo" className="logo-img" />
-          {!collapsed && (
-            <span className="logo-text">
-              应用大平台
-            </span>
-          )}
-        </div>
-        <Menu
-          theme="dark"
-          selectedKeys={[location.pathname]}
-          mode="inline"
-          items={menuItems}
-          onClick={handleMenuClick}
-          className="admin-menu"
-        />
-        <div 
-          className="sider-trigger"
-          onClick={() => setCollapsed(!collapsed)}
+    <Layout className={`admin-layout ${collapsed ? 'ant-layout-sider-collapsed' : ''} ${isMobile ? 'mobile-layout' : ''}`}>
+      {/* 桌面端侧边栏 */}
+      {!isMobile && (
+        <Sider 
+          collapsible 
+          collapsed={collapsed} 
+          onCollapse={(value) => setCollapsed(value)}
+          width={240}
+          className="admin-sider"
+          trigger={null}
         >
-          {collapsed ? '→' : '←'}
-        </div>
-      </Sider>
-      <Layout className="admin-content-layout">
-        <Header className="admin-header">
-          <div className="header-title">
-            应用大平台
+          <div className="sider-logo">
+            <img src={LogoImg} alt="logo" className="logo-img" />
+            {!collapsed && (
+              <span className="logo-text">
+                应用大平台
+              </span>
+            )}
+          </div>
+          <Menu
+            theme="dark"
+            selectedKeys={[location.pathname]}
+            mode="inline"
+            items={menuItems}
+            onClick={handleMenuClick}
+            className="admin-menu"
+          />
+          <div 
+            className="sider-trigger"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? '→' : '←'}
+          </div>
+        </Sider>
+      )}
+
+      {/* 移动端顶部栏 */}
+      {isMobile && (
+        <div className="mobile-header">
+          <Dropdown
+            menu={{
+              items: mobileMenuItems,
+              onClick: handleMenuClick,
+              selectedKeys: [location.pathname],
+            }}
+            placement="bottomLeft"
+            trigger={['click']}
+          >
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              className="mobile-menu-trigger"
+            />
+          </Dropdown>
+          <div className="mobile-logo">
+            <img src={LogoImg} alt="logo" className="logo-img" />
+            <span className="logo-text">应用大平台</span>
           </div>
           <Dropdown
             menu={{
@@ -236,11 +283,37 @@ function AdminLayout({ children }) {
                 alt="avatar" 
                 className="user-avatar"
               />
-              <span className="user-name">{userInfo.display_name || userInfo.name || '管理员'}</span>
-              <DownOutlined className="user-dropdown-icon" />
             </div>
           </Dropdown>
-        </Header>
+        </div>
+      )}
+
+      <Layout className="admin-content-layout">
+        {/* 桌面端 Header */}
+        {!isMobile && (
+          <Header className="admin-header">
+            <div className="header-title">
+              应用大平台
+            </div>
+            <Dropdown
+              menu={{
+                items: userMenuItems,
+                onClick: handleUserMenuClick,
+              }}
+              placement="bottomRight"
+            >
+              <div className="header-user">
+                <img 
+                  src={AvatarImg} 
+                  alt="avatar" 
+                  className="user-avatar"
+                />
+                <span className="user-name">{userInfo.display_name || userInfo.name || '管理员'}</span>
+                <DownOutlined className="user-dropdown-icon" />
+              </div>
+            </Dropdown>
+          </Header>
+        )}
         <Content className="admin-content">
           <div className="content-wrapper">
             {children}

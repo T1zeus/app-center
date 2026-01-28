@@ -14,4 +14,128 @@ a:hover {
 
 body {
   margin: 0;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 响应式工具类 */
+@media (max-width: 767px) {
+  .ant-table {
+    font-size: 12px;
+  }
+
+  .ant-form-item-label {
+    font-size: 13px;
+  }
+
+  .ant-input,
+  .ant-select-selector {
+    font-size: 14px !important;
+  }
+
+  .ant-btn {
+    font-size: 14px;
+    height: 36px;
+    padding: 0 16px;
+  }
+
+  .ant-card .ant-card-head-title {
+    font-size: 15px;
+  }
+
+  .ant-card .ant-card-body {
+    padding: 16px;
+  }
+
+  /* Modal 响应式优化 */
+  .ant-modal {
+    margin: 20px auto;
+    max-width: 90%;
+  }
+
+  .ant-modal-content {
+    border-radius: 8px;
+  }
+
+  .ant-modal-header {
+    padding: 16px;
+  }
+
+  .ant-modal-body {
+    padding: 16px;
+  }
+
+  .ant-modal-footer {
+    padding: 12px 16px;
+  }
+
+  /* 表格分页响应式 - 统一右下角对齐 */
+  .ant-table-pagination {
+    margin: 16px 0 0 0;
+    padding: 0;
+    display: flex;
+    justify-content: flex-end;
+    
+    @media (max-width: 767px) {
+      justify-content: center; // 移动端居中显示
+      padding: 0 8px;
+    }
+  }
+  
+  /* 统一分页组件样式 */
+  .ant-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    
+    @media (max-width: 767px) {
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  }
+
+  /* 表格单元格响应式 */
+  .ant-table-thead > tr > th {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ant-modal {
+    max-width: 95%;
+    margin: 10px auto;
+  }
+
+  .ant-modal-body {
+    padding: 12px;
+  }
+
+  .ant-card .ant-card-body {
+    padding: 12px;
+  }
+}
+
+/* 横屏适配（移动端横屏） */
+@media (max-width: 900px) and (orientation: landscape) {
+  .ant-modal {
+    max-width: 85%;
+  }
+}
+
+/* 移动端触摸优化 */
+@media (max-width: 767px) {
+  button,
+  a,
+  .ant-menu-item,
+  .ant-card {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
 }
