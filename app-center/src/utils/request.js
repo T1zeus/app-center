@@ -94,17 +94,24 @@ class Request {
       // 构建完整 URL
       const fullUrl = `${requestConfig.baseURL}${requestConfig.url}`;
       
+      // 确定请求方法
+      const method = (requestConfig.method || 'GET').toUpperCase();
+      
+      // GET 和 HEAD 请求不能有 body
+      const requestOptions = {
+        method: method,
+        headers: requestConfig.headers,
+        signal: signal,
+        ...requestConfig.extraOptions,
+      };
+      
+      // 只有非 GET/HEAD 请求才添加 body
+      if (method !== 'GET' && method !== 'HEAD' && requestConfig.data) {
+        requestOptions.body = JSON.stringify(requestConfig.data);
+      }
+      
       // 发起请求
-      const response = await fetch(
-        fullUrl,
-        {
-          method: requestConfig.method || 'GET',
-          headers: requestConfig.headers,
-          body: requestConfig.data ? JSON.stringify(requestConfig.data) : undefined,
-          signal: signal,
-          ...requestConfig.extraOptions,
-        }
-      );
+      const response = await fetch(fullUrl, requestOptions);
 
       // 清除超时定时器（如果存在）
       if (timeoutId) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Table, 
   Button, 
@@ -45,6 +45,9 @@ function Subscriptions() {
   const [applications, setApplications] = useState([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
+  
+  // 用于标记是否已初始化，避免筛选条件 useEffect 在首次渲染时触发
+  const isInitialMount = useRef(true);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -53,11 +56,23 @@ function Subscriptions() {
   });
 
   useEffect(() => {
-    loadSubscriptions(pagination.current, pagination.pageSize);
+    loadSubscriptions(1, pagination.pageSize);
     loadOrganizations();
     loadApplications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 监听筛选条件变化，自动重新加载列表（重置到第一页）
+  useEffect(() => {
+    // 跳过首次渲染
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    // 筛选条件变化时，重置到第一页并重新加载
+    loadSubscriptions(1, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterOwner, filterPlan, filterState]);
 
   // 加载组织列表
   const loadOrganizations = async () => {
@@ -291,7 +306,8 @@ function Subscriptions() {
   };
 
   const handleFilterChange = () => {
-    // 筛选条件改变时重新加载列表
+    // 筛选条件改变时重置到第一页并重新加载列表
+    setPagination(prev => ({ ...prev, current: 1 }));
     loadSubscriptions(1, pagination.pageSize);
   };
 
@@ -385,7 +401,7 @@ function Subscriptions() {
                 value={filterOwner}
                 onChange={(value) => {
                   setFilterOwner(value);
-                  setTimeout(handleFilterChange, 100);
+                  setPagination(prev => ({ ...prev, current: 1 }));
                 }}
                 loading={organizationsLoading}
                 style={{ width: '100%' }}
@@ -399,7 +415,7 @@ function Subscriptions() {
                 value={filterPlan}
                 onChange={(value) => {
                   setFilterPlan(value);
-                  setTimeout(handleFilterChange, 100);
+                  setPagination(prev => ({ ...prev, current: 1 }));
                 }}
                 loading={applicationsLoading}
                 style={{ width: '100%' }}
@@ -413,7 +429,7 @@ function Subscriptions() {
                 value={filterState}
                 onChange={(value) => {
                   setFilterState(value);
-                  setTimeout(handleFilterChange, 100);
+                  setPagination(prev => ({ ...prev, current: 1 }));
                 }}
                 style={{ width: '100%' }}
                 options={[
@@ -428,7 +444,7 @@ function Subscriptions() {
                   setFilterOwner(undefined);
                   setFilterPlan(undefined);
                   setFilterState(undefined);
-                  setTimeout(handleFilterChange, 100);
+                  setPagination(prev => ({ ...prev, current: 1 }));
                 }}
               >
                 清除筛选
