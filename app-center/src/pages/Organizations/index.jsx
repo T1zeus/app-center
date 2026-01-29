@@ -9,8 +9,9 @@ import {
   Descriptions,
   Spin,
   Alert,
+  Dropdown,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, MoreOutlined } from '@ant-design/icons';
 
 import './index.less';
 import { organizationService } from '../../services/organization';
@@ -26,6 +27,18 @@ function Organizations() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [createdAdminInfo, setCreatedAdminInfo] = useState(null);
   const [form] = Form.useForm();
+  
+  // 检测是否是移动端
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -195,37 +208,88 @@ function Organizations() {
       title: '组织标识',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: isMobile ? 100 : 200,
+      ellipsis: true,
     },
     {
       title: '组织名称',
       dataIndex: 'displayName',
       key: 'displayName',
-      width: 200,
+      width: isMobile ? 100 : 200,
+      ellipsis: true,
     },
     {
       title: '操作',
       key: 'action',
-      width: 250,
-      fixed: 'right',
-      render: (_, record) => (
-        <div className="table-actions">
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
-            onClick={() => handleViewDetail(record)}
-          >
-            查看详情
-          </Button>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-        </div>
-      ),
+      width: isMobile ? 80 : 250,
+      fixed: isMobile ? false : 'right',
+      render: (_, record) => {
+        if (isMobile) {
+          // 移动端使用下拉菜单
+          const menuItems = [
+            {
+              key: 'view',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EyeOutlined />} 
+                  onClick={() => handleViewDetail(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  查看详情
+                </Button>
+              ),
+            },
+            {
+              key: 'edit',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EditOutlined />} 
+                  onClick={() => handleEdit(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  编辑
+                </Button>
+              ),
+            },
+          ];
+          
+          return (
+            <Dropdown 
+              menu={{ items: menuItems }} 
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button 
+                type="text" 
+                icon={<MoreOutlined />} 
+                style={{ fontSize: '16px' }}
+              />
+            </Dropdown>
+          );
+        }
+        
+        // 桌面端使用按钮
+        return (
+          <div className="table-actions">
+            <Button 
+              type="link" 
+              icon={<EyeOutlined />} 
+              onClick={() => handleViewDetail(record)}
+            >
+              查看详情
+            </Button>
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -244,7 +308,7 @@ function Organizations() {
           dataSource={organizations}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: isMobile ? 300 : 1200 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,

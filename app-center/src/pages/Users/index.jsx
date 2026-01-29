@@ -9,8 +9,9 @@ import {
   Descriptions,
   Spin,
   Select,
+  Dropdown,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons';
 import { Tag } from 'antd';
 
 import './index.less';
@@ -39,6 +40,18 @@ function Users() {
   // 获取当前用户信息，判断是否为系统管理员
   const userInfo = authService.getUserInfo() || {};
   const isSysAdmin = isSystemAdmin(userInfo);
+  
+  // 检测是否是移动端
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -310,30 +323,33 @@ function Users() {
       title: '用户名',
       dataIndex: 'name',
       key: 'name',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '昵称',
       dataIndex: 'displayName',
       key: 'displayName',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '所属组织',
       dataIndex: 'owner',
       key: 'owner',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '角色',
       dataIndex: 'is_admin',
       key: 'is_admin',
-      width: 120,
+      width: isMobile ? 60 : 120,
       render: (isAdmin) => {
         // 判断 is_admin 的值（可能是布尔值、数字或字符串）
         const isAdminValue = isAdmin === true || isAdmin === 1 || isAdmin === 'true' || isAdmin === '1';
         return (
-          <Tag color={isAdminValue ? 'blue' : 'default'}>
+          <Tag color={isAdminValue ? 'blue' : 'default'} style={{ margin: 0 }}>
             {isAdminValue ? '管理员' : '普通用户'}
           </Tag>
         );
@@ -342,33 +358,95 @@ function Users() {
     {
       title: '操作',
       key: 'action',
-      width: 300,
-      fixed: 'right',
-      render: (_, record) => (
-        <div className="table-actions">
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
-            onClick={() => handleViewDetail(record)}
-          >
-            查看详情
-          </Button>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-          <Button 
-            type="link" 
-            icon={<KeyOutlined />} 
-            onClick={() => handleResetPassword(record)}
-          >
-            重置密码
-          </Button>
-        </div>
-      ),
+      width: isMobile ? 80 : 300,
+      fixed: isMobile ? false : 'right',
+      render: (_, record) => {
+        if (isMobile) {
+          // 移动端使用下拉菜单
+          const menuItems = [
+            {
+              key: 'view',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EyeOutlined />} 
+                  onClick={() => handleViewDetail(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  查看详情
+                </Button>
+              ),
+            },
+            {
+              key: 'edit',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EditOutlined />} 
+                  onClick={() => handleEdit(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  编辑
+                </Button>
+              ),
+            },
+            {
+              key: 'reset',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<KeyOutlined />} 
+                  onClick={() => handleResetPassword(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  重置密码
+                </Button>
+              ),
+            },
+          ];
+          
+          return (
+            <Dropdown 
+              menu={{ items: menuItems }} 
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button 
+                type="text" 
+                icon={<MoreOutlined />} 
+                style={{ fontSize: '16px' }}
+              />
+            </Dropdown>
+          );
+        }
+        
+        // 桌面端使用按钮
+        return (
+          <div className="table-actions">
+            <Button 
+              type="link" 
+              icon={<EyeOutlined />} 
+              onClick={() => handleViewDetail(record)}
+            >
+              查看详情
+            </Button>
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+            <Button 
+              type="link" 
+              icon={<KeyOutlined />} 
+              onClick={() => handleResetPassword(record)}
+            >
+              重置密码
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -387,7 +465,7 @@ function Users() {
           dataSource={users}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: isMobile ? 500 : 1200 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,

@@ -13,8 +13,10 @@ import {
   Space,
   Row,
   Col,
+  Dropdown,
+  Menu,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import './index.less';
@@ -48,6 +50,18 @@ function Subscriptions() {
   
   // 用于标记是否已初始化，避免筛选条件 useEffect 在首次渲染时触发
   const isInitialMount = useRef(true);
+  
+  // 检测是否是移动端
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -317,41 +331,46 @@ function Subscriptions() {
       title: '组织',
       dataIndex: 'owner',
       key: 'owner',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '应用',
       dataIndex: 'plan',
       key: 'plan',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '订阅名称',
       dataIndex: 'displayName',
       key: 'displayName',
-      width: 200,
+      width: isMobile ? 100 : 200,
+      ellipsis: true,
     },
     {
       title: '开始时间',
       dataIndex: 'startTime',
       key: 'startTime',
-      width: 180,
-      render: (text) => text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-',
+      width: isMobile ? 100 : 180,
+      ellipsis: true,
+      render: (text) => text ? (isMobile ? dayjs(text).format('MM-DD') : dayjs(text).format('YYYY-MM-DD HH:mm:ss')) : '-',
     },
     {
       title: '结束时间',
       dataIndex: 'endTime',
       key: 'endTime',
-      width: 180,
-      render: (text) => text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-',
+      width: isMobile ? 100 : 180,
+      ellipsis: true,
+      render: (text) => text ? (isMobile ? dayjs(text).format('MM-DD') : dayjs(text).format('YYYY-MM-DD HH:mm:ss')) : '-',
     },
     {
       title: '状态',
       dataIndex: 'state',
       key: 'state',
-      width: 100,
+      width: isMobile ? 60 : 100,
       render: (state) => (
-        <Tag color={state === 'Active' ? 'green' : 'red'}>
+        <Tag color={state === 'Active' ? 'green' : 'red'} style={{ margin: 0 }}>
           {state === 'Active' ? '激活' : '停用'}
         </Tag>
       ),
@@ -359,26 +378,75 @@ function Subscriptions() {
     {
       title: '操作',
       key: 'action',
-      width: 250,
-      fixed: 'right',
-      render: (_, record) => (
-        <div className="table-actions">
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
-            onClick={() => handleViewDetail(record)}
-          >
-            查看详情
-          </Button>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-        </div>
-      ),
+      width: isMobile ? 80 : 250,
+      fixed: isMobile ? false : 'right',
+      render: (_, record) => {
+        if (isMobile) {
+          // 移动端使用下拉菜单
+          const menuItems = [
+            {
+              key: 'view',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EyeOutlined />} 
+                  onClick={() => handleViewDetail(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  查看详情
+                </Button>
+              ),
+            },
+            {
+              key: 'edit',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EditOutlined />} 
+                  onClick={() => handleEdit(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  编辑
+                </Button>
+              ),
+            },
+          ];
+          
+          return (
+            <Dropdown 
+              menu={{ items: menuItems }} 
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button 
+                type="text" 
+                icon={<MoreOutlined />} 
+                style={{ fontSize: '16px' }}
+              />
+            </Dropdown>
+          );
+        }
+        
+        // 桌面端使用按钮
+        return (
+          <div className="table-actions">
+            <Button 
+              type="link" 
+              icon={<EyeOutlined />} 
+              onClick={() => handleViewDetail(record)}
+            >
+              查看详情
+            </Button>
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -460,7 +528,7 @@ function Subscriptions() {
           dataSource={subscriptions}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: isMobile ? 600 : 1200 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,

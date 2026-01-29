@@ -11,8 +11,9 @@ import {
   Tag,
   InputNumber,
   Space,
+  Dropdown,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined, CopyOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
 
 import './index.less';
 import { applicationService } from '../../services/application';
@@ -29,6 +30,18 @@ function Applications() {
   const [viewingApp, setViewingApp] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [form] = Form.useForm();
+  
+  // 检测是否是移动端
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -232,34 +245,37 @@ function Applications() {
       title: '应用标识',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: isMobile ? 100 : 200,
+      ellipsis: true,
     },
     {
       title: '应用名称',
       dataIndex: 'displayName',
       key: 'displayName',
-      width: 200,
+      width: isMobile ? 100 : 200,
+      ellipsis: true,
     },
     {
       title: '所属组织',
       dataIndex: 'organization',
       key: 'organization',
-      width: 150,
+      width: isMobile ? 80 : 150,
+      ellipsis: true,
     },
     {
       title: '客户端ID',
       dataIndex: 'clientId',
       key: 'clientId',
-      width: 200,
+      width: isMobile ? 120 : 200,
       ellipsis: true,
     },
     {
       title: '是否共享',
       dataIndex: 'isShared',
       key: 'isShared',
-      width: 120,
+      width: isMobile ? 60 : 120,
       render: (isShared) => (
-        <Tag color={isShared ? 'green' : 'default'}>
+        <Tag color={isShared ? 'green' : 'default'} style={{ margin: 0 }}>
           {isShared ? '是' : '否'}
         </Tag>
       ),
@@ -267,26 +283,75 @@ function Applications() {
     {
       title: '操作',
       key: 'action',
-      width: 250,
-      fixed: 'right',
-      render: (_, record) => (
-        <div className="table-actions">
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
-            onClick={() => handleViewDetail(record)}
-          >
-            查看详情
-          </Button>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-        </div>
-      ),
+      width: isMobile ? 80 : 250,
+      fixed: isMobile ? false : 'right',
+      render: (_, record) => {
+        if (isMobile) {
+          // 移动端使用下拉菜单
+          const menuItems = [
+            {
+              key: 'view',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EyeOutlined />} 
+                  onClick={() => handleViewDetail(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  查看详情
+                </Button>
+              ),
+            },
+            {
+              key: 'edit',
+              label: (
+                <Button 
+                  type="text" 
+                  icon={<EditOutlined />} 
+                  onClick={() => handleEdit(record)}
+                  style={{ padding: 0, width: '100%', textAlign: 'left' }}
+                >
+                  编辑
+                </Button>
+              ),
+            },
+          ];
+          
+          return (
+            <Dropdown 
+              menu={{ items: menuItems }} 
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button 
+                type="text" 
+                icon={<MoreOutlined />} 
+                style={{ fontSize: '16px' }}
+              />
+            </Dropdown>
+          );
+        }
+        
+        // 桌面端使用按钮
+        return (
+          <div className="table-actions">
+            <Button 
+              type="link" 
+              icon={<EyeOutlined />} 
+              onClick={() => handleViewDetail(record)}
+            >
+              查看详情
+            </Button>
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -305,7 +370,7 @@ function Applications() {
           dataSource={applications}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: isMobile ? 600 : 1200 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,

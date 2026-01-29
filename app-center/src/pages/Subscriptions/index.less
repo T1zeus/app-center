@@ -137,23 +137,58 @@
         }
       }
     }
+    
+    // 移动端下拉菜单样式优化
+    @media (max-width: 767px) {
+      .ant-dropdown-menu {
+        min-width: 120px;
+      }
+      
+      .ant-dropdown-menu-item {
+        padding: 8px 12px;
+        
+        .ant-btn {
+          width: 100%;
+          text-align: left;
+          padding: 0;
+          height: auto;
+          line-height: 1.5;
+          
+          .anticon {
+            margin-right: 8px;
+          }
+        }
+      }
+    }
 
     // 表格响应式
     .ant-table {
       @media (max-width: 767px) {
-        font-size: 12px;
+        font-size: 11px;
       }
 
       .ant-table-thead > tr > th {
         @media (max-width: 767px) {
-          padding: 8px 4px;
-          font-size: 12px;
+          padding: 6px 2px;
+          font-size: 11px;
+          white-space: nowrap;
         }
       }
 
       .ant-table-tbody > tr > td {
         @media (max-width: 767px) {
-          padding: 8px 4px;
+          padding: 6px 2px;
+          font-size: 11px;
+        }
+      }
+      
+      // 移动端标签紧凑
+      .ant-tag {
+        @media (max-width: 767px) {
+          margin: 0;
+          padding: 0 4px;
+          font-size: 10px;
+          line-height: 18px;
         }
       }
     }
