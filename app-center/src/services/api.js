@@ -27,8 +27,70 @@ api.useRequestInterceptor(async (config) => {
   // 刷新 token 的请求不需要添加 access_token，也不需要检查过期
   const isTokenRequest = config.url === '/auth/token';
   
-  // 注意：不再在请求拦截器中主动刷新 token
-  // 改为在 401 错误响应拦截器中处理，符合 OAuth2 规范
+  // 确保 GET/HEAD 请求没有 body
+  const method = (config.method || 'GET').toUpperCase();
+  if (method === 'GET' || method === 'HEAD') {
+    // 移除可能存在的 data，避免 GET 请求带 body
+    delete config.data;
+    // 如果 data 存在且 params 不存在，将 data 转为 params（兼容某些库的用法）
+    if (config.data && !config.params) {
+      config.params = config.data;
+      delete config.data;
+    }
+  }
+  
+  // 检查 token 是否过期，如果过期且不是刷新 token 的请求，则先刷新
+  if (!isTokenRequest && authService.isTokenExpired()) {
+    if (!isRefreshing) {
+      // 开始刷新 token
+      isRefreshing = true;
+      refreshPromise = authService.refreshToken()
+        .then(response => {
+          if (response.data) {
+            authService.saveToken(response.data);
+            // 执行所有挂起的请求
+            pendingRequests.forEach(callback => callback());
+            pendingRequests = [];
+            isRefreshing = false;
+            refreshPromise = null;
+            return response.data.access_token;
+          }
+          throw new Error('刷新 token 失败');
+        })
+        .catch(error => {
+          // 刷新失败，清除所有挂起的请求
+          pendingRequests = [];
+          isRefreshing = false;
+          refreshPromise = null;
+          // 不在这里直接跳转登录，让错误拦截器处理401错误
+          // 这样可以避免在请求拦截器中直接跳转，让错误处理更统一
+          throw error;
+        });
+    }
+    
+    // 如果正在刷新，将当前请求加入队列
+    if (isRefreshing && refreshPromise) {
+      return new Promise((resolve, reject) => {
+        pendingRequests.push(() => {
+          // 重新获取token并重试请求
+          const token = authService.getToken();
+          if (token) {
+            config.headers = {
+              ...config.headers,
+              'Authorization': `Bearer ${token}`,
+            };
+          }
+          // 确保 GET/HEAD 请求没有 body
+          const pendingMethod = (config.method || 'GET').toUpperCase();
+          if (pendingMethod === 'GET' || pendingMethod === 'HEAD') {
+            delete config.data;
+          }
+          // 重新执行请求
+          api.request(config).then(resolve).catch(reject);
+        });
+      });
+    }
+  }
 
   // 添加认证 token（刷新 token 请求不需要）
   if (!isTokenRequest) {
