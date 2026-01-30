@@ -48,17 +48,34 @@ api.useRequestInterceptor(async (config) => {
         .then(response => {
           if (response.data) {
             authService.saveToken(response.data);
+            const newToken = response.data.access_token || response.data.accessToken;
             // 执行所有挂起的请求
-            pendingRequests.forEach(callback => callback());
+            pendingRequests.forEach(callback => {
+              try {
+                callback(newToken);
+              } catch (e) {
+                // 执行挂起请求失败，静默处理
+              }
+            });
             pendingRequests = [];
             isRefreshing = false;
             refreshPromise = null;
-            return response.data.access_token;
+            return newToken;
           }
           throw new Error('刷新 token 失败');
         })
         .catch(error => {
-          // 刷新失败，清除所有挂起的请求
+          // 刷新失败，拒绝所有挂起的请求
+          pendingRequests.forEach(callback => {
+            try {
+              // 如果 callback 需要 token 参数，传递 null 表示刷新失败
+              if (typeof callback === 'function' && callback.length > 0) {
+                callback(null);
+              }
+            } catch (e) {
+              // 执行挂起请求失败，静默处理
+            }
+          });
           pendingRequests = [];
           isRefreshing = false;
           refreshPromise = null;
@@ -71,13 +88,18 @@ api.useRequestInterceptor(async (config) => {
     // 如果正在刷新，将当前请求加入队列
     if (isRefreshing && refreshPromise) {
       return new Promise((resolve, reject) => {
-        pendingRequests.push(() => {
+        pendingRequests.push((token) => {
+          if (!token) {
+            // 刷新失败，拒绝请求
+            reject(new Error('刷新 token 失败，请重新登录'));
+            return;
+          }
           // 重新获取token并重试请求
-          const token = authService.getToken();
-          if (token) {
+          const currentToken = authService.getToken();
+          if (currentToken) {
             config.headers = {
               ...config.headers,
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${currentToken}`,
             };
           }
           // 确保 GET/HEAD 请求没有 body
@@ -87,6 +109,11 @@ api.useRequestInterceptor(async (config) => {
           }
           // 重新执行请求
           api.request(config).then(resolve).catch(reject);
+        });
+        
+        // 如果刷新失败，也要拒绝这个 Promise
+        refreshPromise.catch(() => {
+          reject(new Error('刷新 token 失败，请重新登录'));
         });
       });
     }

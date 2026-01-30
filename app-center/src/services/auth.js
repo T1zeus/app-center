@@ -98,13 +98,23 @@ export const authService = {
 
     /**
      * 使用 refresh_token 刷新 token
-     * 注意：refresh_token 通过 Cookie 传递，无需在请求体中传递
+     * 注意：refresh_token 存储在 HttpOnly Cookie 中，浏览器会自动携带
+     * 但如果后端要求必须传递 refresh_token 参数，则从 localStorage 中读取（如果存在）
      * @returns {Promise} Token 响应
      */
     refreshToken: () => {
-        return api.post('/auth/token', {
+        const requestBody = {
             grant_type: 'refresh_token',
-        });
+        };
+        
+        // 如果 localStorage 中有 refresh_token，也传递到请求体中（兼容处理）
+        // 注意：HttpOnly Cookie 中的 refresh_token 优先级更高
+        const refreshTokenFromStorage = authService.getRefreshToken();
+        if (refreshTokenFromStorage) {
+            requestBody.refresh_token = refreshTokenFromStorage;
+        }
+        
+        return api.post('/auth/token', requestBody);
     },
 
     /**
