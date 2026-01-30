@@ -80,6 +80,27 @@ class Request {
         { ...mergedConfig, url }
       );
 
+      // 关键修复：检查拦截器返回的是配置对象还是响应对象
+      // 如果返回的是响应对象（说明请求已经完成，比如在拦截器中直接 resolve 了响应），直接返回
+      // 响应对象特征：有 status（数字）和 data 属性，且 status 是 HTTP 状态码
+      // 配置对象特征：有 url（字符串）属性
+      if (requestConfig && typeof requestConfig === 'object') {
+        const hasStatus = 'status' in requestConfig && typeof requestConfig.status === 'number';
+        const hasData = 'data' in requestConfig;
+        const hasUrl = 'url' in requestConfig && typeof requestConfig.url === 'string';
+        
+        // 如果有 status 和 data，但没有有效的 url，说明是响应对象
+        if (hasStatus && hasData && !hasUrl) {
+          // 这是响应对象，不是配置对象，直接返回
+          return requestConfig;
+        }
+      }
+
+      // 关键修复：在构建完整 URL 之前，检查 URL 是否存在且有效
+      if (!requestConfig || !requestConfig.url || typeof requestConfig.url !== 'string') {
+        throw new Error('请求 URL 不能为空');
+      }
+
       // 如果外部传入了 signal，使用外部的；否则创建新的用于超时控制
       const externalSignal = requestConfig.signal;
       const controller = externalSignal ? null : new AbortController();

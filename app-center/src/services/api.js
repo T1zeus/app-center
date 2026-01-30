@@ -66,17 +66,20 @@ api.useRequestInterceptor(async (config) => {
         })
         .catch(error => {
           // 刷新失败，拒绝所有挂起的请求
-          pendingRequests.forEach(callback => {
+          const failedCallbacks = [...pendingRequests];
+          pendingRequests = [];
+          
+          failedCallbacks.forEach(callback => {
             try {
-              // 如果 callback 需要 token 参数，传递 null 表示刷新失败
-              if (typeof callback === 'function' && callback.length > 0) {
+              // 传递 null 表示刷新失败
+              if (typeof callback === 'function') {
                 callback(null);
               }
             } catch (e) {
               // 执行挂起请求失败，静默处理
             }
           });
-          pendingRequests = [];
+          
           isRefreshing = false;
           refreshPromise = null;
           // 不在这里直接跳转登录，让错误拦截器处理401错误
@@ -88,32 +91,74 @@ api.useRequestInterceptor(async (config) => {
     // 如果正在刷新，将当前请求加入队列
     if (isRefreshing && refreshPromise) {
       return new Promise((resolve, reject) => {
+        // 保存原始配置，确保 URL 等信息不丢失
+        const originalConfig = { ...config };
+        // 深拷贝 headers 和 data，避免引用问题
+        if (config.headers) {
+          originalConfig.headers = { ...config.headers };
+        }
+        if (config.data) {
+          originalConfig.data = config.data;
+        }
+        if (config.params) {
+          originalConfig.params = { ...config.params };
+        }
+        
+        // 关键修复：确保 URL 存在且有效
+        if (!originalConfig.url || typeof originalConfig.url !== 'string') {
+          reject(new Error('请求 URL 不能为空'));
+          return;
+        }
+        
+        // 标记这个 Promise，避免重复处理
+        let isResolved = false;
+        
         pendingRequests.push((token) => {
+          // 防止重复执行
+          if (isResolved) {
+            return;
+          }
+          
           if (!token) {
             // 刷新失败，拒绝请求
+            isResolved = true;
             reject(new Error('刷新 token 失败，请重新登录'));
             return;
           }
-          // 重新获取token并重试请求
-          const currentToken = authService.getToken();
-          if (currentToken) {
-            config.headers = {
-              ...config.headers,
-              'Authorization': `Bearer ${currentToken}`,
-            };
+          
+          // 使用保存的原始配置重试请求
+          const retryConfig = {
+            ...originalConfig,
+            headers: {
+              ...originalConfig.headers,
+              'Authorization': `Bearer ${token}`,
+            },
+          };
+          
+          // 再次确保 URL 存在且有效
+          if (!retryConfig.url || typeof retryConfig.url !== 'string') {
+            isResolved = true;
+            reject(new Error('重试请求时 URL 丢失'));
+            return;
           }
+          
           // 确保 GET/HEAD 请求没有 body
-          const pendingMethod = (config.method || 'GET').toUpperCase();
+          const pendingMethod = (retryConfig.method || 'GET').toUpperCase();
           if (pendingMethod === 'GET' || pendingMethod === 'HEAD') {
-            delete config.data;
+            delete retryConfig.data;
           }
+          
           // 重新执行请求
-          api.request(config).then(resolve).catch(reject);
+          isResolved = true;
+          api.request(retryConfig).then(resolve).catch(reject);
         });
         
         // 如果刷新失败，也要拒绝这个 Promise
-        refreshPromise.catch(() => {
-          reject(new Error('刷新 token 失败，请重新登录'));
+        refreshPromise.catch((error) => {
+          if (!isResolved) {
+            isResolved = true;
+            reject(new Error('刷新 token 失败，请重新登录'));
+          }
         });
       });
     }
@@ -249,15 +294,68 @@ const errorInterceptor = async (error) => {
         // 如果正在刷新，将请求加入队列等待刷新完成
         if (isRefreshing && refreshPromise) {
           return new Promise((resolve, reject) => {
+            // 保存原始配置，确保 URL 等信息不丢失
+            const savedConfig = { ...originalRequest };
+            if (originalRequest.headers) {
+              savedConfig.headers = { ...originalRequest.headers };
+            }
+            if (originalRequest.data) {
+              savedConfig.data = originalRequest.data;
+            }
+            if (originalRequest.params) {
+              savedConfig.params = { ...originalRequest.params };
+            }
+            
+            // 关键修复：确保 URL 存在且有效
+            if (!savedConfig.url || typeof savedConfig.url !== 'string') {
+              reject(new Error('请求 URL 不能为空'));
+              return;
+            }
+            
+            // 标记这个 Promise，避免重复处理
+            let isResolved = false;
+            
             pendingRequests.push((token) => {
-              // 使用新 token 更新请求头
-              originalRequest.headers = {
-                ...originalRequest.headers,
-                'Authorization': `Bearer ${token}`,
+              // 防止重复执行
+              if (isResolved) {
+                return;
+              }
+              
+              if (!token) {
+                // 刷新失败，拒绝请求
+                isResolved = true;
+                reject(new Error('刷新 token 失败，请重新登录'));
+                return;
+              }
+              
+              // 使用保存的配置和新 token 重试请求
+              const retryConfig = {
+                ...savedConfig,
+                headers: {
+                  ...savedConfig.headers,
+                  'Authorization': `Bearer ${token}`,
+                },
+                _retry: true,
               };
-              originalRequest._retry = true;
+              
+              // 再次确保 URL 存在且有效
+              if (!retryConfig.url || typeof retryConfig.url !== 'string') {
+                isResolved = true;
+                reject(new Error('重试请求时 URL 丢失'));
+                return;
+              }
+              
               // 重新发起请求
-              api.request(originalRequest).then(resolve).catch(reject);
+              isResolved = true;
+              api.request(retryConfig).then(resolve).catch(reject);
+            });
+            
+            // 如果刷新失败，也要拒绝这个 Promise
+            refreshPromise.catch((error) => {
+              if (!isResolved) {
+                isResolved = true;
+                reject(new Error('刷新 token 失败，请重新登录'));
+              }
             });
           });
         }
@@ -265,6 +363,28 @@ const errorInterceptor = async (error) => {
         // 如果还没有开始刷新，尝试刷新
         // refresh_token 通过 Cookie 自动携带，无需手动传递
         if (!isRefreshing) {
+          // 保存原始配置，确保 URL 等信息不丢失
+          const savedConfig = { ...originalRequest };
+          if (originalRequest.headers) {
+            savedConfig.headers = { ...originalRequest.headers };
+          }
+          if (originalRequest.data) {
+            savedConfig.data = originalRequest.data;
+          }
+          if (originalRequest.params) {
+            savedConfig.params = { ...originalRequest.params };
+          }
+          
+          // 关键修复：确保 URL 存在且有效
+          if (!savedConfig.url || typeof savedConfig.url !== 'string') {
+            authService.clearToken();
+            message.error('请求配置错误，请重新登录');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 1000);
+            break;
+          }
+          
           isRefreshing = true;
           refreshPromise = authService.refreshToken()
             .then(response => {
@@ -274,25 +394,50 @@ const errorInterceptor = async (error) => {
                 
                 // 处理所有挂起的请求
                 pendingRequests.forEach(callback => {
-                  callback(newToken);
+                  try {
+                    callback(newToken);
+                  } catch (e) {
+                    // 执行挂起请求失败，静默处理
+                  }
                 });
                 pendingRequests = [];
                 
-                // 使用新 token 更新原始请求头并重试
-                originalRequest.headers = {
-                  ...originalRequest.headers,
-                  'Authorization': `Bearer ${newToken}`,
+                // 使用保存的配置和新 token 重试请求
+                const retryConfig = {
+                  ...savedConfig,
+                  headers: {
+                    ...savedConfig.headers,
+                    'Authorization': `Bearer ${newToken}`,
+                  },
+                  _retry: true,
                 };
-                originalRequest._retry = true;
                 
-                // 重新发起原始请求
-                return api.request(originalRequest);
+                // 关键修复：确保 URL 存在且有效
+                if (!retryConfig.url || typeof retryConfig.url !== 'string') {
+                  throw new Error('重试请求时 URL 丢失');
+                }
+                
+                // 重新发起请求
+                return api.request(retryConfig);
               }
               throw new Error('刷新 token 失败');
             })
             .catch(refreshError => {
-              // 刷新失败，清除所有状态
+              // 刷新失败，拒绝所有挂起的请求
+              const failedCallbacks = [...pendingRequests];
               pendingRequests = [];
+              
+              failedCallbacks.forEach(callback => {
+                try {
+                  // 传递 null 表示刷新失败
+                  if (typeof callback === 'function') {
+                    callback(null);
+                  }
+                } catch (e) {
+                  // 执行挂起请求失败，静默处理
+                }
+              });
+              
               authService.clearToken();
               message.error('登录已过期，请重新登录');
               setTimeout(() => {

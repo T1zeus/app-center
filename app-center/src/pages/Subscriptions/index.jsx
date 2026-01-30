@@ -16,7 +16,7 @@ import {
   Dropdown,
   Menu,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined, MoreOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, MoreOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import './index.less';
@@ -515,9 +515,9 @@ function Subscriptions() {
                   setFilterState(undefined);
                   setPagination(prev => ({ ...prev, current: 1 }));
                 }}
-                style={{ width: '100%' }}
+                icon={<ReloadOutlined />}
               >
-                清除筛选
+                重置
               </Button>
             </Col>
           </Row>
