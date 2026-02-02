@@ -61,23 +61,45 @@ export const appJump = {
      */
     jumpWithTokenInUrl: async (appUrl, options = {}) => {
         const { openInNewTab = true } = options;
-        
+
         // 确保 token 有效（如果过期则自动刷新）
         const token = await appJump.ensureValidToken();
-        
+
         // 获取当前用户的企业标识（owner）
         const userInfo = authService.getUserInfo();
-        const organization = userInfo?.owner && userInfo.owner !== 'built-in' ? userInfo.owner : null;
-        
+        // 修复：built-in 也是有效的企业标识，不应该被过滤掉
+        const organization = userInfo?.owner || null;
+
+        // 处理目标 URL：确保跳转到登录页面
+        // 如果 appUrl 不是以 /login 结尾，则添加 /login 路径
+        let targetUrl = appUrl;
+        try {
+            const urlObj = new URL(appUrl);
+            // 移除已有的查询参数和哈希
+            let path = urlObj.pathname;
+            // 如果路径是根路径或不包含 /login，则设置为 /login
+            if (path === '/' || path === '' || !path.includes('/login')) {
+                path = '/login';
+            }
+            // 重建 URL（不带查询参数和哈希）
+            targetUrl = `${urlObj.origin}${path}`;
+        } catch {
+            // URL 解析失败，使用原始 appUrl
+            targetUrl = appUrl;
+        }
+
         // 通过 URL 参数传递 token 和企业标识
-        const separator = appUrl.includes('?') ? '&' : '?';
-        let jumpUrl = `${appUrl}${separator}access_token=${encodeURIComponent(token)}`;
-        
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        let jumpUrl = `${targetUrl}${separator}access_token=${encodeURIComponent(token)}`;
+
+        // 添加 auto_login 参数
+        jumpUrl += '&auto_login=true';
+
         // 如果有企业标识，添加到 URL 参数中
         if (organization) {
             jumpUrl += `&organization=${encodeURIComponent(organization)}`;
         }
-        
+
         if (openInNewTab) {
             window.open(jumpUrl, '_blank');
         } else {
@@ -99,12 +121,12 @@ export const appJump = {
      * @returns {Promise<void>}
      */
     jumpToApp: async (appInfo, options = {}) => {
-        const { 
+        const {
             openInNewTab = true,
             jumpMode = 'auto', // 'oauth2' | 'token' | 'auto'
         } = options;
-        
-        const { appUrl, clientId, redirectUris } = appInfo;
+
+        const { appUrl, redirectUris } = appInfo;
         
         // 如果没有 appUrl，尝试使用 redirectUris 的第一个作为跳转地址
         let finalAppUrl = appUrl;
@@ -122,21 +144,18 @@ export const appJump = {
         
         // 根据跳转模式选择方案
         let finalJumpMode = jumpMode;
-        
+
         if (jumpMode === 'auto') {
-            // 自动选择：如果有 clientId 和 redirectUris，优先使用 OAuth2
-            if (clientId && redirectUris && redirectUris.length > 0) {
-                finalJumpMode = 'oauth2';
-            } else {
-                finalJumpMode = 'token';
-            }
+            // 自动选择：默认使用 URL 参数方式（更简单，兼容性更好）
+            // 只有明确指定 oauth2 时才使用 OAuth2 授权码模式
+            finalJumpMode = 'token';
         }
-        
+
         if (finalJumpMode === 'oauth2') {
             // 使用 OAuth2 授权码模式
             return appJump.jumpWithOAuth2({ ...appInfo, appUrl: finalAppUrl }, { openInNewTab });
         } else {
-            // 使用 URL 参数传递 token（降级方案）
+            // 使用 URL 参数传递方式（默认）
             return appJump.jumpWithTokenInUrl(finalAppUrl, { openInNewTab });
         }
     },
@@ -210,24 +229,29 @@ export const appJump = {
         }
         
         // 选择第一个重定向URI（或使用 appUrl）
-        // 注意：OAuth2 规范要求 redirect_uri 必须与注册的完全匹配
-        // 但为了传递企业标识，我们尝试在 redirect_uri 中添加查询参数
-        // 如果后端验证失败，可能需要后端支持在验证时忽略查询参数
+        // 注意：OAuth2 规范要求 redirect_uri 必须与注册的完全匹配，不能添加查询参数
         let redirectUri = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
-        
-        // 如果有企业标识，添加到 redirect_uri 的查询参数中
-        // 这样当授权完成后，重定向回应用时，应用就能从 URL 参数中获取企业标识
-        // 注意：这可能导致 OAuth2 验证失败，需要后端支持
-        if (organization && redirectUri) {
+
+        // 如果 appUrl 与 redirectUri 不同，优先使用 redirectUri（OAuth2 规范要求）
+        if (!redirectUri && appUrl) {
+            redirectUri = appUrl;
+        }
+
+        // 移除 redirectUri 中已有的查询参数（OAuth2 规范要求）
+        if (redirectUri) {
             try {
                 const redirectUriObj = new URL(redirectUri);
-                redirectUriObj.searchParams.set('organization', organization);
-                redirectUri = redirectUriObj.toString();
-            } catch (e) {
+                // 保留基础 URL，移除所有查询参数
+                redirectUri = `${redirectUriObj.origin}${redirectUriObj.pathname}`;
+                // 移除末尾斜杠（如果存在），确保 URL 格式一致
+                if (redirectUri.endsWith('/')) {
+                    redirectUri = redirectUri.slice(0, -1);
+                }
+            } catch {
                 // URL 解析失败，使用原始 redirectUri
             }
         }
-        
+
         // ========== 关键：使用目标应用的授权端点 ==========
         // 目标应用（如安全培训系统）有自己的授权端点，应该调用目标应用的授权端点
         // 而不是应用大平台的授权端点
@@ -261,7 +285,7 @@ export const appJump = {
                     // 如果 appUrl 是 IP 地址，尝试推断后端地址
                     // 这里可以根据实际情况调整
                 }
-            } catch (e) {
+            } catch {
                 // URL 解析失败，忽略
             }
         }
@@ -274,7 +298,7 @@ export const appJump = {
             // 保存 state 到 sessionStorage 和 localStorage
             sessionStorage.setItem('oauth_state', state);
             localStorage.setItem('oauth_state', state);
-            
+
             const queryParams = new URLSearchParams({
                 response_type: 'code',
                 client_id: clientId,
@@ -292,24 +316,27 @@ export const appJump = {
                 scope: 'profile',
             });
         }
-        
-        // 在授权 URL 中添加 access_token 参数，让后端知道当前用户已登录
+
+        // 在授权 URL 中添加 SSO 相关参数
+        // 这些参数会在后端重定向到登录页面时被保留，让目标应用识别这是 SSO 跳转
+        const separator = authorizeUrl.includes('?') ? '&' : '?';
+
+        // 添加 access_token 参数（让后端知道当前用户已登录）
         // 后端验证这个 token：
         // - 如果有效 → 直接返回授权码（不跳转登录页），实现 SSO
-        // - 如果无效 → 跳转到 Casdoor 登录页面
-        // 
-        // 注意：这是备选方案，如果后端支持通过 Cookie 验证（方案A），
-        //      后端应该优先使用 Cookie 验证，URL 参数作为备选
-        const separator = authorizeUrl.includes('?') ? '&' : '?';
+        // - 如果无效 → 跳转到目标应用的登录页面，并保留以下参数
         authorizeUrl = `${authorizeUrl}${separator}access_token=${encodeURIComponent(token)}`;
-        
+
+        // 添加 auto_login=true 参数（标识这是自动登录请求）
+        authorizeUrl += `&auto_login=true`;
+
         // 如果有企业标识，添加到授权 URL 的查询参数中
         // 后端在重定向到登录页面时，应该将这个参数保留在重定向 URL 中
         // 这样目标应用的登录页面就能从 URL 参数中获取企业标识
         if (organization) {
             authorizeUrl += `&organization=${encodeURIComponent(organization)}`;
         }
-        
+
         // 注意：由于 OAuth2 的 redirect_uri 必须与注册的完全匹配，
         // 我们不能在 redirect_uri 中添加查询参数，否则验证会失败
         // 
@@ -369,7 +396,7 @@ export const appJump = {
                     // 确保 organization 字段被传递（从列表或详情中获取）
                     organization: app.organization || appData.organization || null,
                 };
-            } catch (error) {
+            } catch {
                 // 如果获取详情失败，且没有 appUrl，尝试使用 redirectUris
                 const fallbackUrl = appUrl || (app.redirectUris && app.redirectUris.length > 0 ? app.redirectUris[0] : null);
                 if (!fallbackUrl) {

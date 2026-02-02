@@ -163,9 +163,9 @@ function Applications() {
         redirectUris: appData.redirect_uris || [],
         isShared: appData.is_shared || false, // 是否为共享应用
       };
-      
+
       setViewingApp(appDetail);
-    } catch (error) {
+    } catch {
       // 如果获取详情失败，静默使用列表中的数据
       // 不显示错误提示，因为列表数据已经足够显示基本信息
       // 错误拦截器已经处理了404错误的显示，这里不需要再次处理

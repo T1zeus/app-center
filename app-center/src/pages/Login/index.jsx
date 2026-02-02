@@ -119,7 +119,7 @@ function Login() {
                   username = payload.name || payload.sub;
                   owner = payload.owner;
                 }
-              } catch (err) {
+              } catch {
                 // 解析失败，忽略
               }
               
@@ -147,7 +147,7 @@ function Login() {
                   } else {
                     throw new Error('用户详情接口返回数据为空');
                   }
-                } catch (err) {
+                } catch {
                   // 如果获取失败，使用 JWT token 中的信息
                   const fallbackUserInfo = {
                     name: username || '管理员',
@@ -217,7 +217,7 @@ function Login() {
               navigate(from, { replace: true });
               isProcessingRef.current = false;
               return;
-            } catch (saveError) {
+            } catch {
               isProcessingRef.current = false;
             }
           }

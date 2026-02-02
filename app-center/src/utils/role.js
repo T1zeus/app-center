@@ -10,15 +10,6 @@ export const USER_ROLES = {
 };
 
 /**
- * 角色显示名称映射
- */
-export const ROLE_DISPLAY_NAMES = {
-  [USER_ROLES.SYSTEM_ADMIN]: '系统管理员',
-  [USER_ROLES.ORG_ADMIN]: '企业管理员',
-  [USER_ROLES.EMPLOYEE]: '员工',
-};
-
-/**
  * 判断 is_admin 字段是否为 true
  * 兼容多种格式：true, 1, 'true', '1'
  * @param {any} isAdmin - is_admin 字段值
@@ -62,8 +53,7 @@ export function getUserRole(userInfo) {
  * @returns {boolean} 是否为系统管理员
  */
 export function isSystemAdmin(userInfo = null) {
-  const user = userInfo || authService.getUserInfo();
-  return getUserRole(user) === USER_ROLES.SYSTEM_ADMIN;
+  return getUserRole(userInfo || authService.getUserInfo()) === USER_ROLES.SYSTEM_ADMIN;
 }
 
 /**
@@ -72,8 +62,7 @@ export function isSystemAdmin(userInfo = null) {
  * @returns {boolean} 是否为企业管理员
  */
 export function isOrgAdmin(userInfo = null) {
-  const user = userInfo || authService.getUserInfo();
-  return getUserRole(user) === USER_ROLES.ORG_ADMIN;
+  return getUserRole(userInfo || authService.getUserInfo()) === USER_ROLES.ORG_ADMIN;
 }
 
 /**
@@ -82,8 +71,7 @@ export function isOrgAdmin(userInfo = null) {
  * @returns {boolean} 是否为员工
  */
 export function isEmployee(userInfo = null) {
-  const user = userInfo || authService.getUserInfo();
-  return getUserRole(user) === USER_ROLES.EMPLOYEE;
+  return getUserRole(userInfo || authService.getUserInfo()) === USER_ROLES.EMPLOYEE;
 }
 
 /**
@@ -91,8 +79,7 @@ export function isEmployee(userInfo = null) {
  * @returns {string|null} 当前用户角色
  */
 export function getCurrentUserRole() {
-  const userInfo = authService.getUserInfo();
-  return getUserRole(userInfo);
+  return getUserRole(authService.getUserInfo());
 }
 
 /**
@@ -106,26 +93,8 @@ export function hasRole(roles, userInfo = null) {
   if (!userRole) {
     return false;
   }
-  
+
   const rolesList = Array.isArray(roles) ? roles : [roles];
   return rolesList.includes(userRole);
-}
-
-/**
- * 检查用户是否有系统管理员权限
- * @param {Object} userInfo - 用户信息对象（可选）
- * @returns {boolean} 是否有系统管理员权限
- */
-export function hasSystemAdminPermission(userInfo = null) {
-  return isSystemAdmin(userInfo);
-}
-
-/**
- * 检查用户是否有企业管理员权限
- * @param {Object} userInfo - 用户信息对象（可选）
- * @returns {boolean} 是否有企业管理员权限
- */
-export function hasOrgAdminPermission(userInfo = null) {
-  return isOrgAdmin(userInfo);
 }
 

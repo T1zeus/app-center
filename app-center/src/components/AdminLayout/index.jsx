@@ -18,7 +18,7 @@ import LogoImg from '/vite.svg';
 import AvatarImg from '/avatar.png';
 import { authService } from '../../services/auth';
 import { userService } from '../../services/user';
-import { isSystemAdmin, isOrgAdmin, getUserRole, USER_ROLES } from '../../utils/role';
+import { getUserRole, USER_ROLES } from '../../utils/role';
 import { showSuccess, handleApiError } from '../../utils/messageHelper';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -191,7 +191,7 @@ function AdminLayout({ children }) {
         try {
           // 调用退出登录接口，会在应用平台、安全培训系统、鉴权网关都退出登录
           await authService.logout();
-        } catch (error) {
+        } catch {
           // 即使退出登录接口调用失败，也清除本地 token 并跳转
           // 静默处理错误，不显示错误消息
         } finally {

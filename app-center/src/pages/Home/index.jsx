@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { 
-  Card, 
-  Input, 
-  Row, 
-  Col, 
-  Spin, 
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Card,
+  Input,
+  Row,
+  Col,
+  Spin,
   Empty,
   Pagination,
 } from 'antd';
@@ -17,116 +17,101 @@ import { handleApiError } from '../../utils/messageHelper';
 
 const { Search } = Input;
 
+// 统一的数据转换函数
+// 只保留后端实际返回的字段（参考后端接口返回的 JSON 结构）
+const transformAppData = (app) => ({
+  id: app.name,
+  name: app.name,
+  displayName: app.display_name || app.name,
+  description: app.description || '暂无描述',
+  icon: app.icon_url || null,
+  appUrl: app.app_url || null,
+  organization: app.organization || '-',
+});
+
+// 过滤掉"默认应用"
+const filterDefaultApps = (apps) => apps.filter(app => app.displayName !== '默认应用');
+
 function Home() {
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
-  const [displayApplications, setDisplayApplications] = useState([]); // 当前页显示的应用
+  const [displayApplications, setDisplayApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const abortControllerRef = useRef(null); // 用于取消重复请求
-  
-  // 分页状态
+  const abortControllerRef = useRef(null);
+
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 12, // 默认每页12个应用（卡片布局）
+    pageSize: 12,
     total: 0,
   });
 
-  useEffect(() => {
-    // 清理函数：组件卸载或重新渲染时取消之前的请求
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
-  }, []);
-
-  // 加载应用数据
-  const loadApplications = async (page = 1, pageSize = 12) => {
-    // 如果已经有请求在进行，先取消
+  // 统一的请求取消逻辑
+  const cancelPendingRequest = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
-    // 创建新的 AbortController
+  }, []);
+
+  // 检查是否为取消的请求
+  const isAbortedRequest = useCallback((error) => {
+    return error.name === 'AbortError' ||
+           error.isAborted === true ||
+           (abortControllerRef.current && abortControllerRef.current.signal.aborted);
+  }, []);
+
+  // 组件卸载时取消请求
+  useEffect(() => {
+    return cancelPendingRequest;
+  }, [cancelPendingRequest]);
+
+  // 统一的数据加载逻辑
+  const loadAndTransformData = async (params, controller) => {
+    const response = await applicationService.getApplicationList(params, {
+      signal: controller.signal,
+    });
+
+    if (!response?.data || typeof response.data !== 'object') {
+      return { apps: [], total: 0 };
+    }
+
+    const responseData = response.data.rows || [];
+    const total = response.data.page_info?.total || responseData.length;
+
+    // 使用统一的转换和过滤函数
+    const apps = filterDefaultApps(responseData.map(transformAppData));
+
+    return { apps, total, originalCount: responseData.length };
+  };
+
+  const loadApplications = async (page = 1, pageSize = 12) => {
+    cancelPendingRequest();
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    
+
     setLoading(true);
     try {
-      const response = await applicationService.getApplicationList({
-        page,
-        page_size: pageSize,
-        sort: 'display_name',
-        // 不传 is_shared，显示所有应用
-      }, {
-        signal: controller.signal,
-      });
-      
-      // 处理响应数据
-      let responseData = [];
-      let total = 0;
-      
-      if (response && response.data && typeof response.data === 'object') {
-        responseData = response.data.rows || [];
-        
-        // 获取总数
-        if (response.data.page_info) {
-          total = response.data.page_info.total || 0;
-        } else {
-          total = responseData.length || 0;
-        }
-      }
-      
-      // 转换数据格式
-      const appsData = responseData
-        .map((app) => ({
-          id: app.name,
-          name: app.name,
-          displayName: app.display_name || app.name,
-          description: app.description || '暂无描述',
-          icon: app.icon_url || null,
-          appUrl: app.app_url || null,
-          organization: app.organization || '-',
-          clientId: app.client_id || null,
-          redirectUris: app.redirect_uris || [],
-        }))
-        // 过滤掉"默认应用"
-        .filter((app) => {
-          const displayName = app.displayName || '';
-          return displayName !== '默认应用';
-        });
-      
-      // 更新总数（减去过滤掉的"默认应用"数量）
-      const filteredTotal = total - (responseData.length - appsData.length);
-      
-      setApplications(appsData);
+      const { apps, total, originalCount } = await loadAndTransformData(
+        { page, page_size: pageSize, sort: 'display_name' },
+        controller
+      );
+
+      setApplications(apps);
       setPagination(prev => ({
         ...prev,
         current: page,
         pageSize,
-        total: filteredTotal,
+        total: total - (originalCount - apps.length),
       }));
     } catch (error) {
-      // 如果是取消请求，不显示错误
-      const isAborted = error.name === 'AbortError' || 
-                       error.isAborted === true ||
-                       (abortControllerRef.current && abortControllerRef.current.signal.aborted);
-      
-      if (isAborted) {
-        return;
+      if (!isAbortedRequest(error)) {
+        handleApiError(error, '加载应用列表失败');
+        setApplications([]);
+        setPagination(prev => ({ ...prev, total: 0 }));
       }
-      handleApiError(error, '加载应用列表失败');
-      setApplications([]);
-      setPagination(prev => ({
-        ...prev,
-        total: 0,
-      }));
     } finally {
       setLoading(false);
-      // 只有在当前 controller 还是活跃的 controller 时才清除引用
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
       }
@@ -136,83 +121,40 @@ function Home() {
   // 初始加载数据
   useEffect(() => {
     loadApplications(pagination.current, pagination.pageSize);
-    
-    // 清理函数：组件卸载时取消请求
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
+    return cancelPendingRequest;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 处理搜索：如果有搜索文本，需要加载所有数据进行前端过滤
+  // 处理搜索
   useEffect(() => {
     if (searchText.trim()) {
-      // 有搜索文本时，加载所有数据进行前端过滤
       const loadAllForSearch = async () => {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-          abortControllerRef.current = null;
-        }
-        
+        cancelPendingRequest();
         const controller = new AbortController();
         abortControllerRef.current = controller;
-        
+
         setLoading(true);
         try {
-          // 加载大量数据用于搜索（假设最多1000个应用）
-          const response = await applicationService.getApplicationList({
-            page: 1,
-            page_size: 1000,
-            sort: 'display_name',
-          }, {
-            signal: controller.signal,
-          });
-          
-          let responseData = [];
-          if (response && response.data && typeof response.data === 'object') {
-            responseData = response.data.rows || [];
-          }
-          
-          const appsData = responseData
-            .map((app) => ({
-              id: app.name,
-              name: app.name,
-              displayName: app.display_name || app.name,
-              description: app.description || '暂无描述',
-              icon: app.icon_url || null,
-              appUrl: app.app_url || null,
-              organization: app.organization || '-',
-              clientId: app.client_id || null,
-              redirectUris: app.redirect_uris || [],
-            }))
-            .filter((app) => {
-              const displayName = app.displayName || '';
-              return displayName !== '默认应用';
-            });
-          
-          // 前端过滤
+          const { apps } = await loadAndTransformData(
+            { page: 1, page_size: 1000, sort: 'display_name' },
+            controller
+          );
+
           const searchLower = searchText.toLowerCase();
-          const filtered = appsData.filter(app => (
-            (app.displayName && app.displayName.toLowerCase().includes(searchLower)) ||
-            (app.name && app.name.toLowerCase().includes(searchLower)) ||
-            (app.description && app.description.toLowerCase().includes(searchLower))
-          ));
-          
+          const filtered = apps.filter(app =>
+            app.displayName.toLowerCase().includes(searchLower) ||
+            app.name.toLowerCase().includes(searchLower) ||
+            app.description.toLowerCase().includes(searchLower)
+          );
+
           setFilteredApplications(filtered);
           setPagination(prev => ({
             ...prev,
-            current: 1, // 搜索时重置到第一页
+            current: 1,
             total: filtered.length,
           }));
         } catch (error) {
-          const isAborted = error.name === 'AbortError' || 
-                           error.isAborted === true ||
-                           (abortControllerRef.current && abortControllerRef.current.signal.aborted);
-          
-          if (!isAborted) {
+          if (!isAbortedRequest(error)) {
             handleApiError(error, '搜索应用失败');
             setFilteredApplications([]);
             setPagination(prev => ({ ...prev, total: 0 }));
@@ -224,38 +166,35 @@ function Home() {
           }
         }
       };
-      
+
       loadAllForSearch();
     } else {
-      // 没有搜索文本时，清空过滤结果，重新加载后端分页数据
       setFilteredApplications([]);
-      // 重置到第一页并重新加载
       setPagination(prev => ({ ...prev, current: 1 }));
       loadApplications(1, pagination.pageSize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText]);
-  
+
   // 根据分页和过滤结果计算当前页显示的应用
   useEffect(() => {
     if (!searchText.trim()) {
-      // 没有搜索时，直接使用后端返回的数据（已经是分页后的）
       setDisplayApplications(applications);
     } else {
-      // 有搜索时，前端分页
       const start = (pagination.current - 1) * pagination.pageSize;
       const end = start + pagination.pageSize;
       setDisplayApplications(filteredApplications.slice(start, end));
     }
-  }, [applications, filteredApplications, pagination.current, pagination.pageSize, searchText]);
+  }, [applications, filteredApplications, pagination, searchText]);
 
 
   const handleAppClick = async (app) => {
     try {
-      // 使用应用跳转工具，自动选择最佳跳转方式
+      // 使用应用跳转工具
+      // jumpMode: 'auto' 会在列表数据缺少 appUrl 时自动获取应用详情
       await appJump.jumpFromAppList(app, {
         openInNewTab: true,
-        jumpMode: 'auto', // 自动选择：如果有 clientId 和 redirectUris，使用 OAuth2；否则使用 URL 参数传递
+        jumpMode: 'auto',
       });
     } catch (error) {
       handleApiError(error, '跳转失败');

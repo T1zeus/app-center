@@ -51,6 +51,12 @@ src/
 │   ├── AdminLayout/           # 管理后台布局
 │   ├── PermissionWrapper/     # 权限包装器
 │   └── Forbidden/             # 403 页面
+│
+│   **AdminLayout 组件**（[components/AdminLayout/index.jsx](src/components/AdminLayout/index.jsx)）：
+│   - 支持桌面端和移动端响应式布局（移动端使用 Dropdown 菜单）
+│   - 根据用户角色动态显示菜单（系统管理员/企业管理员/员工）
+│   - 内置修改密码功能（调用 `userService.changePassword`）
+│   - 退出登录时清除本地 token 并调用后端 logout 接口
 ├── pages/            # 页面组件
 │   ├── Login/                  # 登录页
 │   ├── Home/                   # 首页
@@ -102,6 +108,16 @@ Token 存储在 `localStorage`，包括：
 
 **重要**：[ProtectedRoute](src/components/ProtectedRoute/index.jsx) 不再主动检查 token 过期，只要有 token 就认为已登录，让 API 请求在 401 时自动刷新。
 
+### 菜单配置
+
+[AdminLayout](src/components/AdminLayout/index.jsx) 中根据用户角色动态显示菜单：
+
+| 角色 | 可见菜单 |
+|------|----------|
+| `system_admin` | 应用中心、组织管理、应用管理、订阅管理、用户管理 |
+| `org_admin` | 应用中心、用户管理 |
+| `employee` | 应用中心 |
+
 ### 角色权限系统
 
 角色定义（[role.js](src/utils/role.js)）：
@@ -131,17 +147,30 @@ Token 存储在 `localStorage`，包括：
 
 ## SSO 单点登录
 
-应用跳转通过 [appJump.js](src/utils/appJump.js) 实现：
+应用跳转通过 [appJump.js](src/utils/appJump.js) 实现，支持三种跳转模式：
 
 ```javascript
-import { jumpWithOAuth2 } from '@/utils/appJump';
+import appJump from '@/utils/appJump';
 
-// 跳转到其他应用
-jumpWithOAuth2({
-  url: 'http://target-app.com/login',
-  clientId: 'target-client-id'
-});
+// 方式1：自动选择（推荐）
+// 如果应用配置了 OAuth2（有 clientId 和 redirectUris），使用 OAuth2 模式
+// 否则降级为 URL 参数传递 token 模式
+appJump.jumpToApp(appInfo, { openInNewTab: true });
+
+// 方式2：强制使用 OAuth2 模式
+appJump.jumpToApp(appInfo, { jumpMode: 'oauth2' });
+
+// 方式3：强制使用 URL 参数传递 token 模式
+appJump.jumpToApp(appInfo, { jumpMode: 'token' });
+
+// 从应用列表直接跳转（自动获取应用详情）
+appJump.jumpFromAppList(app, { openInNewTab: true });
 ```
+
+**跳转模式说明**：
+- `oauth2`：标准 OAuth2 授权码模式，后端验证用户身份后返回授权码
+- `token`：URL 参数直接传递 access_token（简单但不安全，仅用于降级）
+- `auto`：自动选择（默认，优先使用 OAuth2）
 
 流程：
 1. 确保 `access_token` 有效（过期则自动刷新）

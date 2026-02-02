@@ -255,9 +255,9 @@ function Subscriptions() {
         endTime: subData.end_time,
         state: subData.state,
       };
-      
+
       setViewingSubscription(subDetail);
-    } catch (error) {
+    } catch {
       // 如果获取详情失败，静默使用列表中的数据
     } finally {
       setDetailLoading(false);
@@ -269,7 +269,7 @@ function Subscriptions() {
       if (editingSubscription) {
         // 更新订阅
         const updateParams = {};
-        
+
         if (values.start_time) {
           updateParams.start_time = values.start_time.format('YYYY-MM-DDTHH:mm:ss[Z]');
         }
@@ -279,7 +279,7 @@ function Subscriptions() {
         if (values.state) {
           updateParams.state = values.state;
         }
-        
+
         await subscriptionService.updateSubscription(
           editingSubscription.owner,
           editingSubscription.plan,
@@ -296,19 +296,19 @@ function Subscriptions() {
           handleApiError('请选择开始时间和结束时间', '创建失败', { showMessage: true });
           return;
         }
-        
+
         if (values.end_time.isBefore(values.start_time)) {
           handleApiError('结束时间必须晚于开始时间', '创建失败', { showMessage: true });
           return;
         }
-        
+
         const createParams = {
           owner: values.owner,
           plan: values.plan,
           start_time: values.start_time.format('YYYY-MM-DDTHH:mm:ss[Z]'),
           end_time: values.end_time.format('YYYY-MM-DDTHH:mm:ss[Z]'),
         };
-        
+
         await subscriptionService.createSubscription(createParams);
         showSuccess('创建成功');
         setModalVisible(false);
@@ -318,12 +318,6 @@ function Subscriptions() {
     } catch (error) {
       handleApiError(error, editingSubscription ? '更新失败' : '创建失败');
     }
-  };
-
-  const handleFilterChange = () => {
-    // 筛选条件改变时重置到第一页并重新加载列表
-    setPagination(prev => ({ ...prev, current: 1 }));
-    loadSubscriptions(1, pagination.pageSize);
   };
 
   const columns = [

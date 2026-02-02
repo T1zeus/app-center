@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
   Card,
   Descriptions,
   Spin,
   Select,
   Dropdown,
+  Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons';
-import { Tag } from 'antd';
 
 import './index.less';
 import { userService } from '../../services/user';
@@ -552,7 +552,7 @@ function Users() {
                 label="电话"
                 rules={[
                   { max: 20, message: '电话长度不能超过20个字符' },
-                  { pattern: /^[\d\s\-\+\(\)]*$/, message: '请输入正确的电话号码格式' },
+                  { pattern: /^[\d\s\-+()]*$/, message: '请输入正确的电话号码格式' },
                 ]}
               >
                 <Input 
