@@ -5,6 +5,7 @@ import { Button, message, Spin, Input } from 'antd';
 import './index.less';
 import { authService } from '../../services/auth';
 import { userService } from '../../services/user';
+import { normalizeUserInfo } from '../../utils/role';
 
 function Login() {
   const navigate = useNavigate();
@@ -95,17 +96,7 @@ function Login() {
             
             // 获取用户信息（如果后端返回）
             if (tokenData.user_info) {
-              // 确保 is_admin 字段被正确保存（兼容多种格式）
-              const userInfo = {
-                ...tokenData.user_info,
-                // 标准化 is_admin 字段：确保是布尔值
-                is_admin: tokenData.user_info.is_admin === true || 
-                         tokenData.user_info.is_admin === 1 || 
-                         tokenData.user_info.is_admin === 'true' || 
-                         tokenData.user_info.is_admin === '1',
-              };
-              
-              authService.saveUserInfo(userInfo);
+              authService.saveUserInfo(normalizeUserInfo(tokenData.user_info));
             } else {
               // Token 中没有 user_info，尝试从 JWT token 中解析用户名和 owner，然后调用用户详情接口
               // 尝试解析 JWT token 获取用户名和 owner
@@ -129,21 +120,12 @@ function Login() {
                   const userDetailResponse = await userService.getUserDetail(owner, username);
                   
                   if (userDetailResponse && userDetailResponse.data) {
-                    // 保存完整的用户信息，包括 owner 和 is_admin
-                    const fullUserInfo = {
+                    authService.saveUserInfo({
+                      ...userDetailResponse.data,
                       name: userDetailResponse.data.name || username,
                       display_name: userDetailResponse.data.display_name || userDetailResponse.data.name || username,
-                      owner: userDetailResponse.data.owner || owner, // 保存 owner 字段
-                      is_admin: userDetailResponse.data.is_admin === true || 
-                               userDetailResponse.data.is_admin === 1 || 
-                               userDetailResponse.data.is_admin === 'true' || 
-                               userDetailResponse.data.is_admin === '1',
-                      id: userDetailResponse.data.id,
-                      // 保留其他字段
-                      ...userDetailResponse.data,
-                    };
-                    
-                    authService.saveUserInfo(fullUserInfo);
+                      owner: userDetailResponse.data.owner || owner,
+                    });
                   } else {
                     throw new Error('用户详情接口返回数据为空');
                   }
@@ -191,22 +173,13 @@ function Login() {
           if (err.status === 200 && err.data && (err.data.access_token || err.data.accessToken)) {
             try {
               authService.saveToken(err.data);
-              
+
               if (err.data.user_info) {
-                // 确保 is_admin 字段被正确保存（兼容多种格式）
-                const userInfo = {
-                  ...err.data.user_info,
-                  // 标准化 is_admin 字段：确保是布尔值
-                  is_admin: err.data.user_info.is_admin === true || 
-                           err.data.user_info.is_admin === 1 || 
-                           err.data.user_info.is_admin === 'true' || 
-                           err.data.user_info.is_admin === '1',
-                };
-                authService.saveUserInfo(userInfo);
+                authService.saveUserInfo(normalizeUserInfo(err.data.user_info));
               } else {
                 authService.saveUserInfo({
                   name: '管理员',
-                  is_admin: false, // 默认不是管理员
+                  is_admin: false,
                 });
               }
               

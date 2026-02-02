@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
+import { useMobile } from '../../hooks/useMobile';
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
   Card,
   Descriptions,
   Spin,
   Tag,
-  InputNumber,
   Space,
   Dropdown,
 } from 'antd';
@@ -17,7 +17,7 @@ import { PlusOutlined, EditOutlined, EyeOutlined, CopyOutlined, MoreOutlined } f
 
 import './index.less';
 import { applicationService } from '../../services/application';
-import { showSuccess, handleApiError } from '../../utils/messageHelper';
+import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
 
 const { TextArea } = Input;
 
@@ -30,18 +30,9 @@ function Applications() {
   const [viewingApp, setViewingApp] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [form] = Form.useForm();
-  
+
   // 检测是否是移动端
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 767);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useMobile();
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -63,26 +54,12 @@ function Applications() {
         sort: '-name', // 按名称降序
         // 移除 is_shared 筛选，显示所有应用
       });
-      
-      // 处理响应数据
-      // 后端返回格式：{ code: 0, message: "string", data: { page_info: {...}, rows: [...] } }
-      let responseData = [];
-      let total = 0;
-      
-      if (response.data && typeof response.data === 'object') {
-        // 从 data.rows 获取列表数据
-        responseData = response.data.rows || [];
-        
-        // 从 data.page_info 获取分页信息
-        if (response.data.page_info) {
-          total = response.data.page_info.total || 0;
-        } else {
-          total = responseData.length || 0;
-        }
-      }
-      
+
+      // 提取分页数据
+      const { rows, total } = extractPageData(response);
+
       // 转换数据格式
-      const appsData = responseData.map((app) => ({
+      const appsData = rows.map((app) => ({
         id: app.name, // 使用 name 作为唯一标识
         name: app.name, // 应用唯一标识符
         displayName: app.display_name || app.name, // 应用名称

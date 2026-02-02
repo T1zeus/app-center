@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useMobile } from '../../hooks/useMobile';
 import { 
   Table, 
   Button, 
@@ -23,7 +24,7 @@ import './index.less';
 import { subscriptionService } from '../../services/subscription';
 import { organizationService } from '../../services/organization';
 import { applicationService } from '../../services/application';
-import { showSuccess, handleApiError } from '../../utils/messageHelper';
+import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
 
 const { RangePicker } = DatePicker;
 
@@ -50,18 +51,9 @@ function Subscriptions() {
   
   // 用于标记是否已初始化，避免筛选条件 useEffect 在首次渲染时触发
   const isInitialMount = useRef(true);
-  
+
   // 检测是否是移动端
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 767);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useMobile();
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -156,21 +148,10 @@ function Subscriptions() {
       const response = await subscriptionService.getSubscriptionList(params);
       
       // 处理响应数据
-      let responseData = [];
-      let total = 0;
-      
-      if (response.data && typeof response.data === 'object') {
-        responseData = response.data.rows || [];
-        
-        if (response.data.page_info) {
-          total = response.data.page_info.total || 0;
-        } else {
-          total = responseData.length || 0;
-        }
-      }
-      
+      const { rows, total } = extractPageData(response);
+
       // 转换数据格式
-      const subsData = responseData.map((sub) => ({
+      const subsData = rows.map((sub) => ({
         id: `${sub.owner}-${sub.plan}`, // 使用 owner-plan 作为唯一标识
         name: sub.name,
         owner: sub.owner,

@@ -112,7 +112,7 @@ api.useRequestInterceptor(async (config) => {
           if (isResolved) return;
           if (!token) {
             isResolved = true;
-            reject(new Error('刷新 token 失败，请重新登录'));
+            reject(new Error('token已失效，请重新登陆'));
             return;
           }
 
@@ -137,7 +137,7 @@ api.useRequestInterceptor(async (config) => {
         refreshPromise.catch(() => {
           if (!isResolved) {
             isResolved = true;
-            reject(new Error('刷新 token 失败，请重新登录'));
+            reject(new Error('token已失效，请重新登陆'));
           }
         });
       });
@@ -257,10 +257,9 @@ const errorInterceptor = async (error) => {
         // 关键修复：如果请求配置不存在或 URL 无效，直接跳转登录
         if (!originalRequest || !originalRequest.url || typeof originalRequest.url !== 'string') {
           authService.clearToken();
-          message.error('登录已过期，请重新登录');
           setTimeout(() => {
             window.location.href = '/login';
-          }, 1000);
+          }, 100);
           break;
         }
 
@@ -268,10 +267,9 @@ const errorInterceptor = async (error) => {
         if (originalRequest._retry) {
           // 已经重试过仍然失败，说明 refresh_token 已失效
           authService.clearToken();
-          message.error('登录已过期，请重新登录');
           setTimeout(() => {
             window.location.href = '/login';
-          }, 1000);
+          }, 100);
           break;
         }
 
@@ -285,7 +283,7 @@ const errorInterceptor = async (error) => {
               if (isResolved) return;
               if (!token) {
                 isResolved = true;
-                reject(new Error('刷新 token 失败，请重新登录'));
+                reject(new Error('token已失效，请重新登陆'));
                 return;
               }
 
@@ -305,7 +303,7 @@ const errorInterceptor = async (error) => {
             refreshPromise.catch(() => {
               if (!isResolved) {
                 isResolved = true;
-                reject(new Error('刷新 token 失败，请重新登录'));
+                reject(new Error('token已失效，请重新登陆'));
               }
             });
           });
@@ -361,10 +359,9 @@ const errorInterceptor = async (error) => {
               });
 
               authService.clearToken();
-              message.error('登录已过期，请重新登录');
               setTimeout(() => {
                 window.location.href = '/login';
-              }, 1000);
+              }, 100);
               throw refreshError;
             })
             .finally(() => {

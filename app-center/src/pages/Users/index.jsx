@@ -18,9 +18,10 @@ import './index.less';
 import { userService } from '../../services/user';
 import { authService } from '../../services/auth';
 import { organizationService } from '../../services/organization';
-import { isSystemAdmin } from '../../utils/role';
-import { showSuccess, handleApiError } from '../../utils/messageHelper';
+import { isAdminValue, isSystemAdmin } from '../../utils/role';
+import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
 import { usernameRules, displayNameRules, passwordRules } from '../../utils/formRules';
+import { useMobile } from '../../hooks/useMobile';
 
 function Users() {
   const [users, setUsers] = useState([]);
@@ -36,22 +37,13 @@ function Users() {
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
-  
+
   // 获取当前用户信息，判断是否为系统管理员
   const userInfo = authService.getUserInfo() || {};
   const isSysAdmin = isSystemAdmin(userInfo);
-  
+
   // 检测是否是移动端
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 767);
-  
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 767);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useMobile();
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -74,16 +66,11 @@ function Users() {
     try {
       const response = await organizationService.getOrganizationList({
         page: 1,
-        page_size: 1000, // 获取所有组织
+        page_size: 1000,
       });
-      
-      let orgsData = [];
-      if (response.data && typeof response.data === 'object') {
-        orgsData = response.data.rows || [];
-      }
-      
+
       // 转换为 Select 组件需要的格式
-      const orgOptions = orgsData.map((org) => ({
+      const orgOptions = (response.data?.rows || []).map((org) => ({
         label: org.display_name || org.name,
         value: org.name,
       }));
@@ -108,42 +95,16 @@ function Users() {
       });
       
       // 处理响应数据
-      // 后端返回格式：{ code: 0, message: "string", data: { page_info: {...}, rows: [...] } }
-      let responseData = [];
-      let total = 0;
-      
-      if (response.data && typeof response.data === 'object') {
-        // 从 data.rows 获取列表数据
-        responseData = response.data.rows || [];
-        
-        // 从 data.page_info 获取分页信息
-        if (response.data.page_info) {
-          total = response.data.page_info.total || 0;
-        } else {
-          total = responseData.length || 0;
-        }
-      }
-      
+      const { rows, total } = extractPageData(response);
+
       // 转换数据格式
-      const usersData = responseData.map((user) => {
-        // 判断 is_admin 字段的值（兼容多种格式：布尔值、数字、字符串）
-        // 注意：需要明确检查，不能使用 || false，因为 0 也是有效值
-        let isAdmin = false;
-        if ('is_admin' in user) {
-          const adminValue = user.is_admin;
-          isAdmin = adminValue === true || adminValue === 1 || adminValue === 'true' || adminValue === '1';
-        } else if ('isAdmin' in user) {
-          // 兼容驼峰命名
-          const adminValue = user.isAdmin;
-          isAdmin = adminValue === true || adminValue === 1 || adminValue === 'true' || adminValue === '1';
-        }
-        
+      const usersData = rows.map((user) => {
         return {
         id: user.id || user.name, // 用户ID或用户名作为唯一标识
         name: user.name, // 用户名
         displayName: user.display_name || user.name, // 昵称
         owner: user.owner || '-', // 所属组织
-          is_admin: isAdmin, // 是否为管理员
+          is_admin: isAdminValue(user.is_admin) || isAdminValue(user.isAdmin), // 是否为管理员（兼容下划线和驼峰命名）
         };
       });
 

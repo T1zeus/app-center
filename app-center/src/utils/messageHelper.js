@@ -101,18 +101,18 @@ export function showLoading(content = '加载中...') {
  */
 export function handleApiError(error, defaultMessage = '操作失败', options = {}) {
   const { showMessage = true } = options;
-  
+
   // 检查是否是取消的请求（AbortError），如果是则不显示错误消息
-  const isAborted = error && typeof error === 'object' && 
+  const isAborted = error && typeof error === 'object' &&
                     (error.name === 'AbortError' || error.isAborted === true);
-  
+
   if (isAborted) {
     // 取消的请求不显示错误消息
     return '请求已取消';
   }
-  
+
   let errorMessage = defaultMessage;
-  
+
   if (error && typeof error === 'object') {
     // 尝试从错误对象中提取消息
     if (error.data) {
@@ -132,12 +132,34 @@ export function handleApiError(error, defaultMessage = '操作失败', options =
   } else if (typeof error === 'string') {
     errorMessage = error;
   }
-  
+
   if (showMessage) {
     showError(errorMessage);
   }
-  
+
   return errorMessage;
+}
+
+/**
+ * 从分页列表 API 响应中提取数据
+ * 后端返回格式：{ code: 0, message: "string", data: { page_info: {...}, rows: [...] } }
+ * @param {Object} response - API 响应对象
+ * @returns {Object} 包含 rows（数据列表）和 total（总数）的对象
+ */
+export function extractPageData(response) {
+  let rows = [];
+  let total = 0;
+
+  if (response?.data && typeof response.data === 'object') {
+    rows = response.data.rows || [];
+    if (response.data.page_info) {
+      total = response.data.page_info.total || 0;
+    } else {
+      total = rows.length || 0;
+    }
+  }
+
+  return { rows, total };
 }
 
 export default {

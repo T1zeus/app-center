@@ -15,7 +15,7 @@ export const USER_ROLES = {
  * @param {any} isAdmin - is_admin 字段值
  * @returns {boolean} 是否为管理员
  */
-function isAdminValue(isAdmin) {
+export function isAdminValue(isAdmin) {
   return isAdmin === true || isAdmin === 1 || isAdmin === 'true' || isAdmin === '1';
 }
 
@@ -28,23 +28,29 @@ export function getUserRole(userInfo) {
   if (!userInfo) {
     return null;
   }
-  
-  // 判断 is_admin 字段的值
+
   const isAdmin = 'is_admin' in userInfo ? isAdminValue(userInfo.is_admin) : false;
   const owner = userInfo.owner;
-  
-  // 规则1：owner 为 'built-in' 且 is_admin 为 true → 系统管理员
+
   if (owner === 'built-in' && isAdmin) {
     return USER_ROLES.SYSTEM_ADMIN;
   }
-  
-  // 规则2：owner 不为 'built-in' 且 is_admin 为 true → 企业管理员
+
   if (owner && owner !== 'built-in' && isAdmin) {
     return USER_ROLES.ORG_ADMIN;
   }
-  
-  // 规则3：其他情况 → 员工
+
   return USER_ROLES.EMPLOYEE;
+}
+
+/**
+ * 标准化用户信息中的 is_admin 字段为布尔值
+ * @param {Object} userInfo - 用户信息对象
+ * @returns {Object} 标准化后的用户信息
+ */
+export function normalizeUserInfo(userInfo) {
+  if (!userInfo) return userInfo;
+  return { ...userInfo, is_admin: isAdminValue(userInfo.is_admin) };
 }
 
 /**

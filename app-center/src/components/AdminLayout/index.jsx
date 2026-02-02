@@ -20,6 +20,7 @@ import { authService } from '../../services/auth';
 import { userService } from '../../services/user';
 import { getUserRole, USER_ROLES } from '../../utils/role';
 import { showSuccess, handleApiError } from '../../utils/messageHelper';
+import { useMobile } from '../../hooks/useMobile';
 
 const { Header, Content, Footer, Sider } = Layout;
 
@@ -84,28 +85,18 @@ const EMPLOYEE_MENU_ITEMS = [
 
 function AdminLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useMobile(767); // 使用 767 断点与其他页面保持一致
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const [passwordForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 监听窗口大小变化
+  // 移动端自动折叠侧边栏
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      // 移动端自动折叠侧边栏
-      if (mobile) {
-        setCollapsed(true);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    // 初始化时检查
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (isMobile) {
+      setCollapsed(true);
+    }
+  }, [isMobile]);
 
   // 获取用户信息
   const userInfo = authService.getUserInfo() || { name: '管理员' };

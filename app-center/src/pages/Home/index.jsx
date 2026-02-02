@@ -18,14 +18,11 @@ import { handleApiError } from '../../utils/messageHelper';
 const { Search } = Input;
 
 // 统一的数据转换函数
-// 只保留后端实际返回的字段（参考后端接口返回的 JSON 结构）
+// 只保留后端实际返回的字段
 const transformAppData = (app) => ({
   id: app.name,
   name: app.name,
   displayName: app.display_name || app.name,
-  description: app.description || '暂无描述',
-  icon: app.icon_url || null,
-  appUrl: app.app_url || null,
   organization: app.organization || '-',
 });
 
@@ -143,8 +140,7 @@ function Home() {
           const searchLower = searchText.toLowerCase();
           const filtered = apps.filter(app =>
             app.displayName.toLowerCase().includes(searchLower) ||
-            app.name.toLowerCase().includes(searchLower) ||
-            app.description.toLowerCase().includes(searchLower)
+            app.name.toLowerCase().includes(searchLower)
           );
 
           setFilteredApplications(filtered);
