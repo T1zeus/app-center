@@ -2,11 +2,12 @@
 import Request from '../utils/request';
 import { message } from 'antd';
 import { authService } from './auth';
+import { API } from '../constants';
 
 // 创建 API 实例
 const api = new Request({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://10.1.2.237:19000/api/v1',
-  timeout: 15000,
+  timeout: API.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -259,7 +260,7 @@ const errorInterceptor = async (error) => {
           authService.clearToken();
           setTimeout(() => {
             window.location.href = '/login';
-          }, 100);
+          }, API.REDIRECT_DELAY);
           break;
         }
 
@@ -269,7 +270,7 @@ const errorInterceptor = async (error) => {
           authService.clearToken();
           setTimeout(() => {
             window.location.href = '/login';
-          }, 100);
+          }, API.REDIRECT_DELAY);
           break;
         }
 

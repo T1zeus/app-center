@@ -17,6 +17,7 @@ import './index.less';
 import { organizationService } from '../../services/organization';
 import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
 import { useMobile } from '../../hooks/useMobile';
+import { transformList, transformOrganization } from '../../utils/dataTransform';
 
 function Organizations() {
   const [organizations, setOrganizations] = useState([]);
@@ -27,6 +28,7 @@ function Organizations() {
   const [viewingOrg, setViewingOrg] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [createdAdminInfo, setCreatedAdminInfo] = useState(null);
+  const [formInitialValues, setFormInitialValues] = useState({});
   const [form] = Form.useForm();
 
   // 检测是否是移动端
@@ -56,11 +58,7 @@ function Organizations() {
       const { rows, total } = extractPageData(response);
 
       // 转换数据格式
-      const orgsData = rows.map((org) => ({
-        id: org.name, // 使用 name 作为唯一标识
-        name: org.name, // 组织唯一标识符
-        displayName: org.display_name || org.name, // 组织名称
-      }));
+      const orgsData = transformList(rows, transformOrganization);
 
       setOrganizations(orgsData);
       setPagination({
@@ -84,7 +82,7 @@ function Organizations() {
   const handleAdd = () => {
     setEditingOrg(null);
     setCreatedAdminInfo(null);
-    form.resetFields();
+    setFormInitialValues({});
     setModalVisible(true);
   };
 
@@ -95,16 +93,16 @@ function Organizations() {
       // 获取最新的组织详情
       const response = await organizationService.getOrganizationDetail(record.name);
       const orgData = response.data || {};
-      
+
       // 转换数据格式用于表单回填
-      form.setFieldsValue({
+      setFormInitialValues({
         name: orgData.name,
         display_name: orgData.display_name || orgData.name,
       });
       setModalVisible(true);
     } catch {
       // 如果获取详情失败，使用列表中的数据
-      form.setFieldsValue({
+      setFormInitialValues({
         name: record.name,
         display_name: record.displayName,
       });
@@ -144,11 +142,11 @@ function Organizations() {
         const updateParams = {
           display_name: values.display_name,
         };
-        
+
         await organizationService.updateOrganization(editingOrg.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         setEditingOrg(null);
         loadOrganizations(pagination.current, pagination.pageSize);
       } else {
@@ -311,10 +309,20 @@ function Organizations() {
       <Modal
         title={editingOrg ? '编辑组织' : '创建组织'}
         open={modalVisible}
+        afterOpenChange={(open) => {
+          if (open) {
+            // Modal 打开后设置表单值
+            if (Object.keys(formInitialValues).length > 0) {
+              form.setFieldsValue(formInitialValues);
+            } else {
+              form.resetFields();
+            }
+          }
+        }}
         onCancel={() => {
           const hadAdminInfo = !!createdAdminInfo;
           setModalVisible(false);
-          form.resetFields();
+          setFormInitialValues({});
           setEditingOrg(null);
           setCreatedAdminInfo(null);
           if (hadAdminInfo) {
@@ -326,7 +334,7 @@ function Organizations() {
           if (createdAdminInfo) {
             // 如果显示了管理员信息，点击确认按钮关闭弹窗
             setModalVisible(false);
-            form.resetFields();
+            setFormInitialValues({});
             setCreatedAdminInfo(null);
             loadOrganizations(pagination.current, pagination.pageSize);
           } else {
@@ -337,7 +345,6 @@ function Organizations() {
         okText={createdAdminInfo ? '已了解' : '确认'}
         cancelText="关闭"
         width={600}
-        destroyOnHidden
       >
         {createdAdminInfo && (
           <Alert
@@ -356,11 +363,12 @@ function Organizations() {
             style={{ marginBottom: 16 }}
           />
         )}
-        
+
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          initialValues={formInitialValues}
         >
           <Form.Item
             name="name"

@@ -10,6 +10,7 @@ import {
   Spin,
   Select,
   Dropdown,
+  Switch,
   Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons';
@@ -18,10 +19,11 @@ import './index.less';
 import { userService } from '../../services/user';
 import { authService } from '../../services/auth';
 import { organizationService } from '../../services/organization';
-import { isAdminValue, isSystemAdmin } from '../../utils/role';
+import { isSystemAdmin } from '../../utils/role';
 import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
 import { usernameRules, displayNameRules, passwordRules } from '../../utils/formRules';
 import { useMobile } from '../../hooks/useMobile';
+import { transformList, transformUser, transformToSelectOptions } from '../../utils/dataTransform';
 
 function Users() {
   const [users, setUsers] = useState([]);
@@ -35,6 +37,7 @@ function Users() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [organizations, setOrganizations] = useState([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
+  const [formInitialValues, setFormInitialValues] = useState({});
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
 
@@ -70,10 +73,7 @@ function Users() {
       });
 
       // 转换为 Select 组件需要的格式
-      const orgOptions = (response.data?.rows || []).map((org) => ({
-        label: org.display_name || org.name,
-        value: org.name,
-      }));
+      const orgOptions = transformToSelectOptions(response.data?.rows || []);
       
       setOrganizations(orgOptions);
     } catch (error) {
@@ -98,15 +98,7 @@ function Users() {
       const { rows, total } = extractPageData(response);
 
       // 转换数据格式
-      const usersData = rows.map((user) => {
-        return {
-        id: user.id || user.name, // 用户ID或用户名作为唯一标识
-        name: user.name, // 用户名
-        displayName: user.display_name || user.name, // 昵称
-        owner: user.owner || '-', // 所属组织
-          is_admin: isAdminValue(user.is_admin) || isAdminValue(user.isAdmin), // 是否为管理员（兼容下划线和驼峰命名）
-        };
-      });
+      const usersData = transformList(rows, transformUser);
 
       setUsers(usersData);
       setPagination({
@@ -129,12 +121,13 @@ function Users() {
 
   const handleAdd = () => {
     setEditingUser(null);
-    form.resetFields();
     // 企业管理员自动填充当前组织，系统管理员不填充（让用户选择）
     if (!isSysAdmin && userInfo && userInfo.owner) {
-      form.setFieldsValue({
+      setFormInitialValues({
         owner: userInfo.owner,
       });
+    } else {
+      setFormInitialValues({});
     }
     setModalVisible(true);
   };
@@ -149,26 +142,26 @@ function Users() {
       }
       const response = await userService.getUserDetail(owner, record.name);
       const userData = response.data || {};
-      
+
       // 转换数据格式用于表单回填
-      form.setFieldsValue({
+      setFormInitialValues({
         name: userData.name,
         display_name: userData.display_name || userData.name,
         email: userData.email || '',
         phone: userData.phone || '',
         owner: userData.owner || '',
-        is_admin: userData.is_admin || false,
+        is_admin: Boolean(userData.is_admin),
       });
       setModalVisible(true);
     } catch {
       // 如果获取详情失败，使用列表中的数据
-      form.setFieldsValue({
+      setFormInitialValues({
         name: record.name,
         display_name: record.displayName,
         email: '',
         phone: '',
         owner: record.owner || '',
-        is_admin: false,
+        is_admin: Boolean(record.is_admin),
       });
       setModalVisible(true);
     }
@@ -226,11 +219,11 @@ function Users() {
         const updateParams = {
           display_name: values.display_name,
         };
-        
+
         await userService.updateUser(owner, editingUser.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         setEditingUser(null);
         loadUsers(pagination.current, pagination.pageSize);
       } else {
@@ -242,11 +235,11 @@ function Users() {
           owner: String(values.owner || '').trim(),
           password: values.password,
         };
-        
+
         await userService.createUser(createParams);
         showSuccess('创建成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         loadUsers(pagination.current, pagination.pageSize);
       }
     } catch (error) {
@@ -451,21 +444,31 @@ function Users() {
       <Modal
         title={editingUser ? '编辑用户' : '创建用户'}
         open={modalVisible}
+        afterOpenChange={(open) => {
+          if (open) {
+            // Modal 打开后设置表单值
+            if (Object.keys(formInitialValues).length > 0) {
+              form.setFieldsValue(formInitialValues);
+            } else {
+              form.resetFields();
+            }
+          }
+        }}
         onCancel={() => {
           setModalVisible(false);
-          form.resetFields();
+          setFormInitialValues({});
           setEditingUser(null);
         }}
         onOk={() => form.submit()}
         okText="确认"
         cancelText="取消"
         width={600}
-        destroyOnHidden
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          initialValues={formInitialValues}
         >
           <Form.Item
             name="name"
@@ -534,12 +537,10 @@ function Users() {
                 <Form.Item
                   name="is_admin"
                   label="是否管理员"
-                  getValueFromEvent={(value) => value}
-                  getValueProps={(value) => ({ value: value ? '是' : '否' })}
+                  valuePropName="checked"
+                  getValueProps={(value) => ({ checked: Boolean(value) })}
                 >
-                  <Input 
-                    disabled
-                  />
+                  <Switch disabled />
                 </Form.Item>
               )}
             </>
@@ -663,7 +664,6 @@ function Users() {
         okText="确认"
         cancelText="取消"
         width={500}
-        destroyOnHidden
       >
         {resettingPasswordUser && (
           <div style={{ marginBottom: 16 }}>

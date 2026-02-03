@@ -25,6 +25,7 @@ import { subscriptionService } from '../../services/subscription';
 import { organizationService } from '../../services/organization';
 import { applicationService } from '../../services/application';
 import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
+import { transformList, transformSubscription } from '../../utils/dataTransform';
 
 const { RangePicker } = DatePicker;
 
@@ -36,6 +37,7 @@ function Subscriptions() {
   const [editingSubscription, setEditingSubscription] = useState(null);
   const [viewingSubscription, setViewingSubscription] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [formInitialValues, setFormInitialValues] = useState({});
   const [form] = Form.useForm();
   
   // 筛选条件
@@ -151,16 +153,7 @@ function Subscriptions() {
       const { rows, total } = extractPageData(response);
 
       // 转换数据格式
-      const subsData = rows.map((sub) => ({
-        id: `${sub.owner}-${sub.plan}`, // 使用 owner-plan 作为唯一标识
-        name: sub.name,
-        owner: sub.owner,
-        plan: sub.plan,
-        displayName: sub.display_name || `${sub.owner}-${sub.plan}`,
-        startTime: sub.start_time,
-        endTime: sub.end_time,
-        state: sub.state,
-      }));
+      const subsData = transformList(rows, transformSubscription);
 
       setSubscriptions(subsData);
       setPagination({
@@ -183,7 +176,7 @@ function Subscriptions() {
 
   const handleAdd = () => {
     setEditingSubscription(null);
-    form.resetFields();
+    setFormInitialValues({});
     setModalVisible(true);
   };
 
@@ -193,9 +186,9 @@ function Subscriptions() {
       // 获取最新的订阅详情
       const response = await subscriptionService.getSubscriptionDetail(record.owner, record.plan);
       const subData = response.data || {};
-      
+
       // 转换数据格式用于表单回填
-      form.setFieldsValue({
+      setFormInitialValues({
         owner: subData.owner,
         plan: subData.plan,
         start_time: subData.start_time ? dayjs(subData.start_time) : null,
@@ -205,7 +198,7 @@ function Subscriptions() {
       setModalVisible(true);
     } catch {
       // 如果获取详情失败，使用列表中的数据
-      form.setFieldsValue({
+      setFormInitialValues({
         owner: record.owner,
         plan: record.plan,
         start_time: record.startTime ? dayjs(record.startTime) : null,
@@ -268,7 +261,7 @@ function Subscriptions() {
         );
         showSuccess('更新成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         setEditingSubscription(null);
         loadSubscriptions(pagination.current, pagination.pageSize);
       } else {
@@ -293,7 +286,7 @@ function Subscriptions() {
         await subscriptionService.createSubscription(createParams);
         showSuccess('创建成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         loadSubscriptions(pagination.current, pagination.pageSize);
       }
     } catch (error) {
@@ -528,21 +521,31 @@ function Subscriptions() {
       <Modal
         title={editingSubscription ? '编辑订阅' : '创建订阅'}
         open={modalVisible}
+        afterOpenChange={(open) => {
+          if (open) {
+            // Modal 打开后设置表单值
+            if (Object.keys(formInitialValues).length > 0) {
+              form.setFieldsValue(formInitialValues);
+            } else {
+              form.resetFields();
+            }
+          }
+        }}
         onCancel={() => {
           setModalVisible(false);
-          form.resetFields();
+          setFormInitialValues({});
           setEditingSubscription(null);
         }}
         onOk={() => form.submit()}
         okText="确认"
         cancelText="取消"
         width={600}
-        destroyOnClose
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          initialValues={formInitialValues}
         >
           <Form.Item
             name="owner"

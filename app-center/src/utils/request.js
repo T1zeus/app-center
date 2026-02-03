@@ -1,8 +1,11 @@
 // src/utils/request.js
+// 常量定义
+const DEFAULT_TIMEOUT = 10000; // 10秒
+
 class Request {
   constructor(baseConfig = {}) {
     this.baseURL = baseConfig.baseURL || '';
-    this.timeout = baseConfig.timeout || 10000;
+    this.timeout = baseConfig.timeout || DEFAULT_TIMEOUT;
     this.headers = baseConfig.headers || {
       'Content-Type': 'application/json',
     };

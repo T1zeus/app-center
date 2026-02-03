@@ -1,5 +1,8 @@
 import api from './api';
 
+// 常量定义
+const MS_PER_SECOND = 1000;
+
 /**
  * OAuth2 认证服务
  * 参考后端文档：OAuth2 授权端点和令牌端点
@@ -139,7 +142,7 @@ export const authService = {
         
         // 计算过期时间戳
         if (expires_in) {
-            const expiresAt = Date.now() + expires_in * 1000;
+            const expiresAt = Date.now() + expires_in * MS_PER_SECOND;
             localStorage.setItem('token_expires_at', expiresAt.toString());
         }
     },

@@ -18,6 +18,7 @@ import { PlusOutlined, EditOutlined, EyeOutlined, CopyOutlined, MoreOutlined } f
 import './index.less';
 import { applicationService } from '../../services/application';
 import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
+import { transformList, transformApplication } from '../../utils/dataTransform';
 
 const { TextArea } = Input;
 
@@ -29,6 +30,7 @@ function Applications() {
   const [editingApp, setEditingApp] = useState(null);
   const [viewingApp, setViewingApp] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [formInitialValues, setFormInitialValues] = useState({});
   const [form] = Form.useForm();
 
   // 检测是否是移动端
@@ -59,15 +61,7 @@ function Applications() {
       const { rows, total } = extractPageData(response);
 
       // 转换数据格式
-      const appsData = rows.map((app) => ({
-        id: app.name, // 使用 name 作为唯一标识
-        name: app.name, // 应用唯一标识符
-        displayName: app.display_name || app.name, // 应用名称
-        organization: app.organization || '-', // 所属组织
-        clientId: app.client_id || '-', // 客户端ID
-        redirectUris: app.redirect_uris || [], // 重定向URI列表
-        isShared: app.is_shared || false, // 是否为共享应用
-      }));
+      const appsData = transformList(rows, transformApplication);
 
       setApplications(appsData);
       setPagination({
@@ -90,7 +84,7 @@ function Applications() {
 
   const handleAdd = () => {
     setEditingApp(null);
-    form.resetFields();
+    setFormInitialValues({});
     setModalVisible(true);
   };
 
@@ -100,9 +94,9 @@ function Applications() {
       // 获取最新的应用详情
       const response = await applicationService.getApplicationDetail(record.name);
       const appData = response.data || {};
-      
+
       // 转换数据格式用于表单回填
-      form.setFieldsValue({
+      setFormInitialValues({
         name: appData.name,
         display_name: appData.display_name || appData.name,
         redirect_uris: appData.redirect_uris ? appData.redirect_uris.join('\n') : '',
@@ -110,7 +104,7 @@ function Applications() {
       setModalVisible(true);
     } catch {
       // 如果获取详情失败，使用列表中的数据
-      form.setFieldsValue({
+      setFormInitialValues({
         name: record.name,
         display_name: record.displayName,
         redirect_uris: record.redirectUris ? record.redirectUris.join('\n') : '',
@@ -184,7 +178,7 @@ function Applications() {
         await applicationService.updateApplication(editingApp.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         setEditingApp(null);
         loadApplications(pagination.current, pagination.pageSize);
       } else {
@@ -194,22 +188,22 @@ function Applications() {
           .split('\n')
           .map(uri => uri.trim())
           .filter(uri => uri.length > 0);
-        
+
         if (redirectUris.length === 0) {
           handleApiError('至少需要一个重定向URI', '创建失败', { showMessage: true });
           return;
         }
-        
+
         const createParams = {
           name: String(values.name || '').trim(),
           display_name: String(values.display_name || '').trim(),
           redirect_uris: redirectUris,
         };
-        
+
         await applicationService.createApplication(createParams);
         showSuccess('创建成功');
         setModalVisible(false);
-        form.resetFields();
+        setFormInitialValues({});
         loadApplications(pagination.current, pagination.pageSize);
       }
     } catch (error) {
@@ -372,21 +366,31 @@ function Applications() {
       <Modal
         title={editingApp ? '编辑应用' : '创建应用'}
         open={modalVisible}
+        afterOpenChange={(open) => {
+          if (open) {
+            // Modal 打开后设置表单值
+            if (Object.keys(formInitialValues).length > 0) {
+              form.setFieldsValue(formInitialValues);
+            } else {
+              form.resetFields();
+            }
+          }
+        }}
         onCancel={() => {
           setModalVisible(false);
-          form.resetFields();
+          setFormInitialValues({});
           setEditingApp(null);
         }}
         onOk={() => form.submit()}
         okText="确认"
         cancelText="取消"
         width={600}
-        destroyOnHidden
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          initialValues={formInitialValues}
         >
           <Form.Item
             name="name"

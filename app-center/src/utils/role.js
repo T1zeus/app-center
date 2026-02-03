@@ -63,32 +63,6 @@ export function isSystemAdmin(userInfo = null) {
 }
 
 /**
- * 判断用户是否为企业管理员
- * @param {Object} userInfo - 用户信息对象（可选，如果不传则从 authService 获取）
- * @returns {boolean} 是否为企业管理员
- */
-export function isOrgAdmin(userInfo = null) {
-  return getUserRole(userInfo || authService.getUserInfo()) === USER_ROLES.ORG_ADMIN;
-}
-
-/**
- * 判断用户是否为员工
- * @param {Object} userInfo - 用户信息对象（可选，如果不传则从 authService 获取）
- * @returns {boolean} 是否为员工
- */
-export function isEmployee(userInfo = null) {
-  return getUserRole(userInfo || authService.getUserInfo()) === USER_ROLES.EMPLOYEE;
-}
-
-/**
- * 获取当前用户角色
- * @returns {string|null} 当前用户角色
- */
-export function getCurrentUserRole() {
-  return getUserRole(authService.getUserInfo());
-}
-
-/**
  * 检查用户是否有指定角色
  * @param {string|Array<string>} roles - 允许的角色或角色数组
  * @param {Object} userInfo - 用户信息对象（可选）
