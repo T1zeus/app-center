@@ -255,39 +255,36 @@ export const appJump = {
         // ========== 关键：使用目标应用的授权端点 ==========
         // 目标应用（如安全培训系统）有自己的授权端点，应该调用目标应用的授权端点
         // 而不是应用大平台的授权端点
-        // 
-        // 从 appUrl 推断目标应用的后端地址
-        // 例如：如果 appUrl 是 http://localhost:5174，后端可能是 http://10.1.2.237:17890
+        //
+        // 从 redirect_uris 推断目标应用的后端地址
+        // 例如：如果 redirect_uris 是 http://localhost:5174/login，后端是 http://localhost:5174/api/v1
         let targetBackendBaseUrl = null;
-        
-        // 应用后端地址映射（根据应用名称或 appUrl 推断）
-        // 如果 appUrl 包含 localhost:5174，说明是安全培训系统，后端是 17890
-        if (appUrl && appUrl.includes('localhost:5174')) {
-            targetBackendBaseUrl = 'http://10.1.2.237:17890';
+
+        // 优先从 redirect_uris 提取后端地址
+        if (redirectUris && redirectUris.length > 0) {
+            const firstRedirectUri = Array.isArray(redirectUris) ? redirectUris[0] : redirectUris;
+            try {
+                const redirectUriObj = new URL(firstRedirectUri);
+                // 使用 redirect_uri 的 origin 作为后端 base URL
+                targetBackendBaseUrl = redirectUriObj.origin;
+            } catch {
+                // URL 解析失败，继续尝试其他方式
+            }
         }
-        // 如果应用信息中有后端地址字段，使用它
-        else if (appInfo.authBaseUrl || appInfo.backendUrl) {
-            targetBackendBaseUrl = appInfo.authBaseUrl || appInfo.backendUrl;
-        }
-        // 如果 appUrl 是其他地址，尝试从 appUrl 推断后端地址
-        else if (appUrl) {
+
+        // 如果 redirect_uris 无法解析，尝试从 appUrl 推断
+        if (!targetBackendBaseUrl && appUrl) {
             try {
                 const appUrlObj = new URL(appUrl);
-                // 如果 appUrl 的 hostname 是 localhost 或 127.0.0.1，使用固定 IP
-                if (appUrlObj.hostname === 'localhost' || appUrlObj.hostname === '127.0.0.1') {
-                    // 根据端口映射后端地址（需要根据实际情况调整）
-                    // 安全培训系统前端 5174 -> 后端 17890
-                    if (appUrlObj.port === '5174') {
-                        targetBackendBaseUrl = 'http://10.1.2.237:17890';
-                    }
-                    // 可以添加更多映射
-                } else {
-                    // 如果 appUrl 是 IP 地址，尝试推断后端地址
-                    // 这里可以根据实际情况调整
-                }
+                targetBackendBaseUrl = appUrlObj.origin;
             } catch {
-                // URL 解析失败，忽略
+                // URL 解析失败
             }
+        }
+
+        // 如果应用信息中有后端地址字段，优先使用
+        if (appInfo.authBaseUrl || appInfo.backendUrl) {
+            targetBackendBaseUrl = appInfo.authBaseUrl || appInfo.backendUrl;
         }
         
         // 生成 OAuth2 授权 URL
