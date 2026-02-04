@@ -7,13 +7,17 @@ import {
   Spin,
   Empty,
   Pagination,
+  Tag,
 } from 'antd';
-import { SearchOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { SearchOutlined, AppstoreOutlined, WarningOutlined } from '@ant-design/icons';
 
 import './index.less';
 import { applicationService } from '../../services/application';
+import { subscriptionService } from '../../services/subscription';
+import { authService } from '../../services/auth';
 import appJump from '../../utils/appJump';
 import { handleApiError } from '../../utils/messageHelper';
+import { getUserRole, USER_ROLES } from '../../utils/role';
 
 const { Search } = Input;
 
@@ -29,12 +33,39 @@ const transformAppData = (app) => ({
 // 过滤掉"默认应用"
 const filterDefaultApps = (apps) => apps.filter(app => app.displayName !== '默认应用');
 
+// 订阅状态检查
+const checkSubscriptionStatus = (subscription, isSystemAdmin = false) => {
+  // 系统管理员不受订阅限制
+  if (isSystemAdmin) {
+    return { isActive: true, status: 'active', label: '可访问', color: 'blue' };
+  }
+
+  if (!subscription) {
+    return { isActive: false, status: 'unsubscribed', label: '未订阅', color: 'default' };
+  }
+
+  const now = new Date();
+  const endTime = subscription.end_time ? new Date(subscription.end_time) : null;
+  const isExpired = endTime && endTime < now;
+
+  if (subscription.state !== 'Active') {
+    return { isActive: false, status: 'inactive', label: '已停用', color: 'red' };
+  }
+
+  if (isExpired) {
+    return { isActive: false, status: 'expired', label: '已过期', color: 'orange' };
+  }
+
+  return { isActive: true, status: 'active', label: '已激活', color: 'green' };
+};
+
 function Home() {
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
   const [displayApplications, setDisplayApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [subscriptions, setSubscriptions] = useState({});
   const abortControllerRef = useRef(null);
 
   const [pagination, setPagination] = useState({
@@ -42,6 +73,12 @@ function Home() {
     pageSize: 12,
     total: 0,
   });
+
+  // 获取当前用户信息
+  const userInfo = authService.getUserInfo() || {};
+  const userOwner = userInfo.owner;
+  const userRole = getUserRole(userInfo);
+  const isSystemAdmin = userRole === USER_ROLES.SYSTEM_ADMIN;
 
   // 统一的请求取消逻辑
   const cancelPendingRequest = useCallback(() => {
@@ -62,6 +99,30 @@ function Home() {
   useEffect(() => {
     return cancelPendingRequest;
   }, [cancelPendingRequest]);
+
+  // 加载订阅信息
+  const loadSubscriptions = async () => {
+    if (!userOwner) return;
+
+    try {
+      const response = await subscriptionService.getSubscriptionList({
+        owner: userOwner,
+        page: 1,
+        page_size: 1000,
+      });
+
+      if (response?.data?.rows) {
+        const subsMap = {};
+        response.data.rows.forEach(sub => {
+          subsMap[sub.plan] = sub;
+        });
+        setSubscriptions(subsMap);
+      }
+    } catch (error) {
+      // 订阅加载失败不影响应用列表显示
+      console.error('加载订阅信息失败:', error);
+    }
+  };
 
   // 统一的数据加载逻辑
   const loadAndTransformData = async (params, controller) => {
@@ -118,6 +179,7 @@ function Home() {
   // 初始加载数据
   useEffect(() => {
     loadApplications(pagination.current, pagination.pageSize);
+    loadSubscriptions();
     return cancelPendingRequest;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -185,6 +247,13 @@ function Home() {
 
 
   const handleAppClick = async (app) => {
+    const subscription = subscriptions[app.name];
+    const { isActive } = checkSubscriptionStatus(subscription, isSystemAdmin);
+
+    if (!isActive) {
+      return;
+    }
+
     try {
       // 使用应用跳转工具
       // jumpMode: 'auto' 会在列表数据缺少 appUrl 时自动获取应用详情
@@ -220,7 +289,7 @@ function Home() {
         </div>
       ) : displayApplications.length === 0 ? (
         <div className="home-empty">
-          <Empty 
+          <Empty
             description={searchText ? '未找到匹配的应用' : '暂无应用'}
           />
         </div>
@@ -229,34 +298,53 @@ function Home() {
           <div className="home-apps">
             <Row gutter={[24, 24]}>
               {displayApplications.map((app) => {
+                const subscription = subscriptions[app.name];
+                const { isActive, label, color } = checkSubscriptionStatus(subscription, isSystemAdmin);
+
                 return (
-                  <Col 
-                    key={app.id} 
-                    xs={24} 
-                    sm={12} 
-                    md={8} 
+                  <Col
+                    key={app.id}
+                    xs={24}
+                    sm={12}
+                    md={8}
                     lg={6}
                     xl={5}
                     xxl={4}
                   >
                     <Card
-                      className="app-card"
-                      hoverable
+                      className={`app-card ${!isActive ? 'app-card-disabled' : ''}`}
+                      hoverable={isActive}
                       onClick={() => handleAppClick(app)}
                       cover={
-                        app.icon ? (
-                          <div className="app-card-icon">
-                            <img src={app.icon} alt={app.displayName} />
-                          </div>
-                        ) : (
-                          <div className="app-card-icon-default">
-                            <AppstoreOutlined />
-                          </div>
-                        )
+                        <div className="app-card-cover">
+                          {app.icon ? (
+                            <div className="app-card-icon">
+                              <img src={app.icon} alt={app.displayName} />
+                            </div>
+                          ) : (
+                            <div className="app-card-icon-default">
+                              <AppstoreOutlined />
+                            </div>
+                          )}
+                          {!isActive && !isSystemAdmin && (
+                            <div className="app-card-disabled-overlay">
+                              <WarningOutlined />
+                            </div>
+                          )}
+                        </div>
                       }
                     >
                       <Card.Meta
-                        title={app.displayName}
+                        title={
+                          <div className="app-card-title">
+                            <span className="app-name">{app.displayName}</span>
+                            {!isSystemAdmin && (
+                              <Tag color={color} className="app-status-tag">
+                                {label}
+                              </Tag>
+                            )}
+                          </div>
+                        }
                       />
                     </Card>
                   </Col>
@@ -264,7 +352,7 @@ function Home() {
               })}
             </Row>
           </div>
-          
+
           {/* 分页组件 */}
           {pagination.total > 0 && (
             <div className="home-pagination">
@@ -286,7 +374,7 @@ function Home() {
                     setPagination(prev => ({ ...prev, current: page, pageSize }));
                   }
                 }}
-                onShowSizeChange={(current, size) => {
+                onShowSizeChange={(_current, size) => {
                   setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
                   if (!searchText.trim()) {
                     // 没有搜索时，使用后端分页
@@ -303,4 +391,3 @@ function Home() {
 }
 
 export default Home;
-
