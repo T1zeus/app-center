@@ -12,6 +12,7 @@ import {
   Dropdown,
   Switch,
   Tag,
+  Space,
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined, KeyOutlined, MoreOutlined } from '@ant-design/icons';
 
@@ -48,6 +49,9 @@ function Users() {
   // 检测是否是移动端
   const isMobile = useMobile();
 
+  // 筛选条件
+  const [filterOwner, setFilterOwner] = useState(undefined);
+
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -83,17 +87,23 @@ function Users() {
     }
   };
 
-  const loadUsers = async (page = 1, pageSize = 10) => {
+  const loadUsers = async (page = 1, pageSize = 10, owner = undefined) => {
     setLoading(true);
     try {
-      // 根据当前用户的组织过滤用户列表
-      // 后端会根据 token 中的用户信息自动过滤当前组织的用户
-      const response = await userService.getUserList({
+      // 构建查询参数
+      const params = {
         page,
         page_size: pageSize,
         sort: '-name', // 按名称降序
-      });
-      
+      };
+
+      // 系统管理员可以按组织筛选，企业管理员只能查看本组织用户
+      if (isSysAdmin && owner) {
+        params.owner = owner;
+      }
+
+      const response = await userService.getUserList(params);
+
       // 处理响应数据
       const { rows, total } = extractPageData(response);
 
@@ -414,6 +424,32 @@ function Users() {
           </Button>
         </div>
 
+        {/* 筛选条件 */}
+        {isSysAdmin && (
+          <div className="page-filters" style={{ marginBottom: 16 }}>
+            <Space size="middle">
+              <span>所属组织：</span>
+              <Select
+                placeholder="全部组织"
+                allowClear
+                style={{ width: 200 }}
+                value={filterOwner}
+                onChange={(value) => {
+                  setFilterOwner(value);
+                  setPagination(prev => ({ ...prev, current: 1 }));
+                  loadUsers(1, pagination.pageSize, value);
+                }}
+                loading={organizationsLoading}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={organizations}
+              />
+            </Space>
+          </div>
+        )}
+
         <Table
           columns={columns}
           dataSource={users}
@@ -430,11 +466,11 @@ function Users() {
             pageSizeOptions: ['10', '20', '50', '100'],
             onChange: (page, pageSize) => {
               setPagination(prev => ({ ...prev, current: page, pageSize }));
-              loadUsers(page, pageSize);
+              loadUsers(page, pageSize, filterOwner);
             },
-            onShowSizeChange: (current, size) => {
+            onShowSizeChange: (_current, size) => {
               setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
-              loadUsers(1, size);
+              loadUsers(1, size, filterOwner);
             },
           }}
         />

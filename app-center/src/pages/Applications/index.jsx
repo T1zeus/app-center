@@ -12,13 +12,15 @@ import {
   Tag,
   Space,
   Dropdown,
+  Select,
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
 
 import './index.less';
 import { applicationService } from '../../services/application';
+import { organizationService } from '../../services/organization';
 import { showSuccess, handleApiError, extractPageData } from '../../utils/messageHelper';
-import { transformList, transformApplication } from '../../utils/dataTransform';
+import { transformList, transformApplication, transformToSelectOptions } from '../../utils/dataTransform';
 
 const { TextArea } = Input;
 
@@ -36,6 +38,12 @@ function Applications() {
   // 检测是否是移动端
   const isMobile = useMobile();
 
+  // 筛选条件
+  const [filterOrganization, setFilterOrganization] = useState(undefined);
+  const [filterIsShared, setFilterIsShared] = useState(undefined);
+  const [organizations, setOrganizations] = useState([]);
+  const [organizationsLoading, setOrganizationsLoading] = useState(false);
+
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -44,18 +52,46 @@ function Applications() {
 
   useEffect(() => {
     loadApplications(pagination.current, pagination.pageSize);
+    loadOrganizations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadApplications = async (page = 1, pageSize = 10) => {
+  // 加载组织列表
+  const loadOrganizations = async () => {
+    setOrganizationsLoading(true);
+    try {
+      const response = await organizationService.getOrganizationList({
+        page: 1,
+        page_size: 1000,
+      });
+
+      const orgOptions = transformToSelectOptions(response.data?.rows || []);
+      setOrganizations(orgOptions);
+    } catch (error) {
+      console.error('加载组织列表失败:', error);
+    } finally {
+      setOrganizationsLoading(false);
+    }
+  };
+
+  const loadApplications = async (page = 1, pageSize = 10, organization = undefined, isShared = undefined) => {
     setLoading(true);
     try {
-      const response = await applicationService.getApplicationList({
+      const params = {
         page,
         page_size: pageSize,
         sort: '-name', // 按名称降序
-        // 移除 is_shared 筛选，显示所有应用
-      });
+      };
+
+      if (organization) {
+        params.organization = organization;
+      }
+
+      if (isShared !== undefined) {
+        params.is_shared = isShared;
+      }
+
+      const response = await applicationService.getApplicationList(params);
 
       // 提取分页数据
       const { rows, total } = extractPageData(response);
@@ -336,6 +372,46 @@ function Applications() {
           </Button>
         </div>
 
+        {/* 筛选条件 */}
+        <div className="page-filters" style={{ marginBottom: 16 }}>
+          <Space size="middle">
+            <span>所属组织：</span>
+            <Select
+              placeholder="全部组织"
+              allowClear
+              style={{ width: 200 }}
+              value={filterOrganization}
+              onChange={(value) => {
+                setFilterOrganization(value);
+                setPagination(prev => ({ ...prev, current: 1 }));
+                loadApplications(1, pagination.pageSize, value, filterIsShared);
+              }}
+              loading={organizationsLoading}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={organizations}
+            />
+            <span>是否共享：</span>
+            <Select
+              placeholder="全部"
+              allowClear
+              style={{ width: 120 }}
+              value={filterIsShared}
+              onChange={(value) => {
+                setFilterIsShared(value);
+                setPagination(prev => ({ ...prev, current: 1 }));
+                loadApplications(1, pagination.pageSize, filterOrganization, value);
+              }}
+              options={[
+                { label: '是', value: true },
+                { label: '否', value: false },
+              ]}
+            />
+          </Space>
+        </div>
+
         <Table
           columns={columns}
           dataSource={applications}
@@ -352,11 +428,11 @@ function Applications() {
             pageSizeOptions: ['10', '20', '50', '100'],
             onChange: (page, pageSize) => {
               setPagination(prev => ({ ...prev, current: page, pageSize }));
-              loadApplications(page, pageSize);
+              loadApplications(page, pageSize, filterOrganization, filterIsShared);
             },
-            onShowSizeChange: (current, size) => {
+            onShowSizeChange: (_current, size) => {
               setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
-              loadApplications(1, size);
+              loadApplications(1, size, filterOrganization, filterIsShared);
             },
           }}
         />
