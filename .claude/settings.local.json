@@ -4,7 +4,8 @@
       "Bash(npm run lint)",
       "Bash(npx eslint:*)",
       "mcp__zread__get_repo_structure",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "mcp__zai-mcp-server__extract_text_from_screenshot"
     ]
   }
 }

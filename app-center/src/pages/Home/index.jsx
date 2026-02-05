@@ -274,7 +274,7 @@ function Home() {
       </div>
       <div className="home-search">
         <Search
-          placeholder="搜索应用名称或描述"
+          placeholder="搜索应用名称"
           allowClear
           enterButton={<SearchOutlined />}
           size="large"
@@ -360,7 +360,7 @@ function Home() {
                 current={pagination.current}
                 pageSize={pagination.pageSize}
                 total={pagination.total}
-                showTotal={(total, range) => `第 ${range[0]}-${range[1]} 个，共 ${total} 个应用`}
+                showTotal={(total) => `共 ${total} 个应用`}
                 showSizeChanger={true}
                 showQuickJumper={true}
                 pageSizeOptions={['12', '24', '48', '96']}
