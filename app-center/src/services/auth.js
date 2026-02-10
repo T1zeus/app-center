@@ -40,7 +40,7 @@ export const authService = {
 
         // 授权端点需要使用完整的后端 URL
         // 从环境变量获取 baseURL，如果包含 /api/v1，则提取基础部分
-        let baseURL = import.meta.env.VITE_API_BASE_URL || 'http://10.1.2.237:19000/api/v1';
+        let baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
         const apiPrefix = import.meta.env.VITE_API_PREFIX || '/api';
         const apiVersion = import.meta.env.VITE_API_VERSION || '/v1';
         

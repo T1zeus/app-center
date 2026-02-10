@@ -6,7 +6,7 @@ import { API } from '../constants';
 
 // 创建 API 实例
 const api = new Request({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://10.1.2.237:19000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: API.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
