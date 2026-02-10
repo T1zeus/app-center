@@ -267,11 +267,13 @@ function AdminLayout({ children }) {
               onClick: handleUserMenuClick,
             }}
             placement="bottomRight"
+            getPopupContainer={() => document.body}
+            trigger={['click']}
           >
             <div className="header-user">
-              <img 
-                src={AvatarImg} 
-                alt="avatar" 
+              <img
+                src={AvatarImg}
+                alt="avatar"
                 className="user-avatar"
               />
             </div>
@@ -292,11 +294,13 @@ function AdminLayout({ children }) {
                 onClick: handleUserMenuClick,
               }}
               placement="bottomRight"
+              getPopupContainer={() => document.body}
+              trigger={['click']}
             >
               <div className="header-user">
-                <img 
-                  src={AvatarImg} 
-                  alt="avatar" 
+                <img
+                  src={AvatarImg}
+                  alt="avatar"
                   className="user-avatar"
                 />
                 <span className="user-name">{userInfo.display_name || userInfo.name || '管理员'}</span>

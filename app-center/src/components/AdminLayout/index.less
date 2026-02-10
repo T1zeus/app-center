@@ -22,6 +22,7 @@
     padding: 0 16px;
     z-index: 1000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    overflow: visible;
 
     .mobile-menu-trigger {
       color: #fff;
@@ -55,6 +56,8 @@
     }
 
     .header-user {
+      position: relative;
+
       .user-avatar {
         width: 32px;
         height: 32px;
@@ -215,7 +218,7 @@
   }
 
   .admin-header {
-    padding: 0 32px;
+    padding: 0 24px;
     background: #fff;
     display: flex;
     align-items: center;
@@ -226,6 +229,7 @@
     z-index: 10;
     height: 64px;
     line-height: 64px;
+    overflow: hidden;
 
     // 移动端隐藏
     @media (max-width: 767px) {
@@ -247,9 +251,15 @@
       padding: 4px 12px;
       border-radius: 20px;
       transition: all 0.3s ease;
+      position: relative;
 
       &:hover {
         background: #f5f5f5;
+      }
+
+      // 确保 Dropdown 弹出层不会被裁剪
+      .ant-dropdown {
+        z-index: 1050;
       }
 
       .user-avatar {
