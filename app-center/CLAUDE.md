@@ -96,6 +96,19 @@ Token 存储在 `localStorage`，包括：
 - `token_expires_at` - 过期时间戳
 - `user_info` - 用户信息
 
+### OAuth/认证调试注意事项
+
+修复认证相关问题时，**必须先识别所有场景**：
+- 外部重定向进入
+- 用户主动登出后
+- Cookie 被清除
+- OAuth 回调场景
+- 手动输入用户名密码
+- 自动登录触发
+
+遗漏任何场景都会导致修复不完整，需要 4+ 次迭代。
+使用 `/debug-oauth` 技能获取完整检查清单。
+
 ### Token 自动刷新机制
 
 [api.js](src/services/api.js) 实现了智能的 token 自动刷新：
@@ -206,16 +219,49 @@ api.get('/users/{id}', {
 
 ## 代码风格
 
+### 语言
+**这是 JavaScript 项目（非 TypeScript）**
+- ❌ 不要使用 TypeScript 语法：`as const`、类型注解、interface 定义
+- ✅ 使用 JSDoc 注解类型（如需要）
+- ✅ 所有 import 必须实际使用
+
 ESLint 配置：
 - 基于 `eslint:recommended`
 - React Hooks 规则
 - React Refresh 规则
 - 未使用变量规则：`varsIgnorePattern: '^[A-Z_]'`（允许全大写变量）
 
+### 代码组织
+- 重构前先检查 `utils/` 和 `services/` 是否已有类似功能
+- 避免重复创建工具函数
+- 一次修改不要超过 3 个文件，每次修改后验证
+
 ## 注意事项
 
+### 通用规范
 1. **不要使用 axios**：项目使用自研 Request 类，位于 [utils/request.js](src/utils/request.js)
 2. **API 调用统一通过 services 层**：不要在页面组件中直接调用 api，应在 [services/](src/services/) 目录中创建对应的 service 文件
 3. **Token 刷新是自动的**：API 层已实现自动刷新，组件中不需要手动处理
 4. **404 错误静默处理**：详情请求的 404 由列表数据提供基本信息，不需要全局错误提示
 5. **Mock 模式**：设置 `VITE_USE_MOCK=true` 可启用 Mock 数据，用于前端独立开发测试
+
+### 状态管理规范
+- 修改 React 状态或 useEffect 前，使用 `/debug-state` 技能检查：
+  1. 单一数据源是什么？
+  2. 是否存在竞态条件？
+  3. 状态是否正确重置？
+- 不要使用 ref 存储后端已有的数据（冗余且易不同步）
+- 切换内容时必须重置相关状态
+- 使用 AbortController 处理组件卸载时的异步请求
+
+### 数据处理规范
+- 检查数据标准化函数中的 spread operator，避免覆盖重要字段（如 `display_name`）
+- 修改数据展示组件时，同时测试管理端和用户端的一致性
+- 表格数据必须有稳定的 `rowKey`，不要用数组索引
+
+### 防错清单
+- [ ] 这是 JS 文件，确认没有 TypeScript 语法
+- [ ] 检查是否已有相同功能的工具函数
+- [ ] 识别所有使用场景（不仅是当前场景）
+- [ ] 测试快速切换/竞态条件
+- [ ] 运行 `npm run lint` 检查语法
