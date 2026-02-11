@@ -33,6 +33,8 @@ export const applicationService = {
      * @param {string} params.name - 应用唯一标识符（必需）
      * @param {string} params.display_name - 应用名称（必需）
      * @param {Array<string>} params.redirect_uris - 重定向URI列表（必需）
+     * @param {string} params.homepage_url - 应用首页链接（可选）
+     * @param {string} params.description - 应用描述（可选）
      * @returns {Promise} 创建响应
      */
     createApplication: (params = {}) => {
@@ -44,6 +46,9 @@ export const applicationService = {
      * @param {string} name - 应用唯一标识符
      * @param {Object} params - 更新参数
      * @param {string} params.display_name - 应用名称（可选）
+     * @param {Array<string>} params.redirect_uris - 重定向URI列表（可选）
+     * @param {string} params.homepage_url - 应用首页链接（可选）
+     * @param {string} params.description - 应用描述（可选）
      * @returns {Promise} 更新响应
      */
     updateApplication: (name, params = {}) => {

@@ -100,10 +100,11 @@ export const appJump = {
     },
 
     /**
-     * 使用 target app 的 client_id 和 redirect_uris 进行跳转
+     * 使用 target app 的 client_id、redirect_uris 和 homepage_url 进行跳转
      * @param {Object} appInfo - 应用信息
      * @param {string} appInfo.name - 应用标识
      * @param {string} appInfo.clientId - 应用客户端ID
+     * @param {string} appInfo.homepageUrl - 应用首页链接（用于跳转）
      * @param {string|Array<string>} appInfo.redirectUris - 重定向URI列表
      * @param {Object} options - 选项
      * @param {boolean} options.openInNewTab - 是否在新标签页打开，默认 true
@@ -116,12 +117,16 @@ export const appJump = {
             jumpMode = 'auto', // 'oauth2' | 'token' | 'auto'
         } = options;
 
-        const { redirectUris } = appInfo;
+        // 优先使用 homepage_url 进行跳转
+        let jumpUrl = appInfo.homepageUrl || null;
 
-        // 从 redirectUris 获取跳转地址
-        const jumpUrl = redirectUris && redirectUris.length > 0
-            ? (Array.isArray(redirectUris) ? redirectUris[0] : redirectUris)
-            : null;
+        // 如果没有 homepage_url，回退到 redirect_uris
+        if (!jumpUrl) {
+            const { redirectUris } = appInfo;
+            jumpUrl = redirectUris && redirectUris.length > 0
+                ? (Array.isArray(redirectUris) ? redirectUris[0] : redirectUris)
+                : null;
+        }
 
         if (!jumpUrl) {
             throw new Error('该应用暂未配置跳转地址');
@@ -328,25 +333,30 @@ export const appJump = {
     jumpFromAppList: async (app, options = {}) => {
         const { name } = app;
 
-        // 如果没有 clientId，尝试获取应用详情
+        // 尝试获取应用详情（获取 homepage_url 等完整信息）
         let appInfo = { ...app };
 
-        if ((options.jumpMode === 'oauth2' || options.jumpMode === 'auto') && !app.clientId) {
+        // 如果没有 homepageUrl 或 clientId，尝试获取应用详情
+        if (!app.homepageUrl || (options.jumpMode === 'oauth2' && !app.clientId)) {
             try {
                 const response = await applicationService.getApplicationDetail(name);
                 const appData = response.data || {};
 
                 appInfo = {
                     ...app,
-                    clientId: appData.client_id,
-                    redirectUris: appData.redirect_uris || [],
+                    homepageUrl: appData.homepage_url || app.homepageUrl || '',
+                    clientId: appData.client_id || app.clientId || '',
+                    redirectUris: appData.redirect_uris || app.redirectUris || [],
                     organization: app.organization || appData.organization || null,
                 };
             } catch {
-                // 如果获取详情失败，使用列表中的 redirectUris
-                const fallbackUrl = app.redirectUris && app.redirectUris.length > 0
-                    ? (Array.isArray(app.redirectUris) ? app.redirectUris[0] : app.redirectUris)
-                    : null;
+                // 如果获取详情失败，尝试使用列表中的数据
+                let fallbackUrl = app.homepageUrl || null;
+                if (!fallbackUrl) {
+                    fallbackUrl = app.redirectUris && app.redirectUris.length > 0
+                        ? (Array.isArray(app.redirectUris) ? app.redirectUris[0] : app.redirectUris)
+                        : null;
+                }
                 if (!fallbackUrl) {
                     throw new Error('该应用暂未配置跳转地址');
                 }

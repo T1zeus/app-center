@@ -16,6 +16,8 @@ export function transformApplication(app) {
     organization: app.organization || '-',
     clientId: app.client_id || '-',
     redirectUris: app.redirect_uris || [],
+    homepageUrl: app.homepage_url || '',
+    description: app.description || '',
     isShared: app.is_shared || false,
   };
 }

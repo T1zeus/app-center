@@ -136,6 +136,8 @@ function Applications() {
         name: appData.name,
         display_name: appData.display_name || appData.name,
         redirect_uris: appData.redirect_uris ? appData.redirect_uris.join('\n') : '',
+        homepage_url: appData.homepage_url || '',
+        description: appData.description || '',
       });
       setModalVisible(true);
     } catch {
@@ -144,6 +146,8 @@ function Applications() {
         name: record.name,
         display_name: record.displayName,
         redirect_uris: record.redirectUris ? record.redirectUris.join('\n') : '',
+        homepage_url: record.homepageUrl || '',
+        description: record.description || '',
       });
       setModalVisible(true);
     }
@@ -168,6 +172,8 @@ function Applications() {
         clientId: appData.client_id || '-',
         clientSecret: appData.client_secret || '-',
         redirectUris: appData.redirect_uris || [],
+        homepageUrl: appData.homepage_url || '',
+        description: appData.description || '',
         isShared: appData.is_shared || false, // 是否为共享应用
       };
 
@@ -197,20 +203,30 @@ function Applications() {
         const updateParams = {
           display_name: values.display_name,
         };
-        
+
         // 处理重定向URI列表（如果用户填写了）
         if (values.redirect_uris) {
           const redirectUris = values.redirect_uris
             .split('\n')
             .map(uri => uri.trim())
             .filter(uri => uri.length > 0);
-          
+
           // 如果有有效的URI，则添加到更新参数中
           if (redirectUris.length > 0) {
             updateParams.redirect_uris = redirectUris;
           }
         }
-        
+
+        // 处理应用首页链接（如果用户填写了）
+        if (values.homepage_url) {
+          updateParams.homepage_url = values.homepage_url.trim();
+        }
+
+        // 处理应用描述（如果用户填写了）
+        if (values.description) {
+          updateParams.description = values.description.trim();
+        }
+
         await applicationService.updateApplication(editingApp.name, updateParams);
         showSuccess('更新成功');
         setModalVisible(false);
@@ -235,6 +251,14 @@ function Applications() {
           display_name: String(values.display_name || '').trim(),
           redirect_uris: redirectUris,
         };
+
+        // 添加可选字段
+        if (values.homepage_url) {
+          createParams.homepage_url = values.homepage_url.trim();
+        }
+        if (values.description) {
+          createParams.description = values.description.trim();
+        }
 
         await applicationService.createApplication(createParams);
         showSuccess('创建成功');
@@ -500,9 +524,9 @@ function Applications() {
             name="redirect_uris"
             label="重定向URI列表"
             rules={[
-              { 
-                required: !editingApp, 
-                message: '请输入至少一个重定向URI' 
+              {
+                required: !editingApp,
+                message: '请输入至少一个重定向URI'
               },
               {
                 validator: (_, value) => {
@@ -524,9 +548,48 @@ function Applications() {
             ]}
             tooltip={editingApp ? "每行一个URI，留空则不更新重定向URI列表" : "每行一个URI，例如：http://localhost:3000/callback"}
           >
-            <TextArea 
+            <TextArea
               placeholder={editingApp ? "请输入重定向URI，每行一个，留空则不更新&#10;例如：&#10;http://localhost:3000/callback&#10;https://example.com/callback" : "请输入重定向URI，每行一个&#10;例如：&#10;http://localhost:3000/callback&#10;https://example.com/callback"}
               rows={4}
+            />
+          </Form.Item>
+          <Form.Item
+            name="homepage_url"
+            label="应用首页链接"
+            rules={[
+              { max: 200, message: '应用首页链接长度不能超过200个字符' },
+              {
+                validator: (_, value) => {
+                  if (!value || !value.trim()) {
+                    return Promise.resolve();
+                  }
+                  try {
+                    new URL(value.trim());
+                    return Promise.resolve();
+                  } catch {
+                    return Promise.reject(new Error('请输入有效的URL'));
+                  }
+                },
+              },
+            ]}
+            tooltip="用于跳转到应用首页，留空则使用重定向URI"
+          >
+            <Input
+              placeholder="请输入应用首页链接，例如：http://localhost:3000"
+              maxLength={200}
+            />
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="应用描述"
+            rules={[
+              { max: 500, message: '应用描述长度不能超过500个字符' },
+            ]}
+          >
+            <TextArea
+              placeholder="请输入应用描述（可选）"
+              rows={3}
+              maxLength={500}
             />
           </Form.Item>
         </Form>
@@ -616,6 +679,18 @@ function Applications() {
               ) : (
                 '-'
               )}
+            </Descriptions.Item>
+            <Descriptions.Item label="应用首页链接">
+              {viewingApp.homepageUrl ? (
+                <a href={viewingApp.homepageUrl} target="_blank" rel="noopener noreferrer">
+                  {viewingApp.homepageUrl}
+                </a>
+              ) : (
+                '-'
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="应用描述">
+              {viewingApp.description || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="是否共享">
               <Space>
