@@ -102,44 +102,32 @@ export const authService = {
     /**
      * 使用 refresh_token 刷新 token
      * 注意：refresh_token 存储在 HttpOnly Cookie 中，浏览器会自动携带
-     * 但如果后端要求必须传递 refresh_token 参数，则从 localStorage 中读取（如果存在）
      * @returns {Promise} Token 响应
      */
     refreshToken: () => {
-        const requestBody = {
+        return api.post('/auth/token', {
             grant_type: 'refresh_token',
-        };
-        
-        // 如果 localStorage 中有 refresh_token，也传递到请求体中（兼容处理）
-        // 注意：HttpOnly Cookie 中的 refresh_token 优先级更高
-        const refreshTokenFromStorage = authService.getRefreshToken();
-        if (refreshTokenFromStorage) {
-            requestBody.refresh_token = refreshTokenFromStorage;
-        }
-        
-        return api.post('/auth/token', requestBody);
+        });
     },
 
     /**
      * 保存 token 到 localStorage
      * @param {Object} tokenData - Token 数据
      * @param {string} tokenData.access_token - 访问令牌（或 tokenData.accessToken）
-     * @param {string} tokenData.refresh_token - 刷新令牌（可选）
      * @param {number} tokenData.expires_in - 过期时间（秒）
+     * @param {string} tokenData.refresh_token - 刷新令牌（由后端通过 Cookie 设置，前端不处理）
      */
     saveToken: (tokenData) => {
         // 兼容两种字段名：access_token 和 accessToken
         const accessToken = tokenData.access_token || tokenData.accessToken;
-        const { refresh_token, expires_in } = tokenData;
-        
+        const { expires_in } = tokenData;
+
         if (accessToken) {
             localStorage.setItem('auth_token', accessToken);
         }
-        
-        if (refresh_token) {
-            localStorage.setItem('refresh_token', refresh_token);
-        }
-        
+
+        // refresh_token 由后端通过 HttpOnly Cookie 设置，前端不需要存储
+
         // 计算过期时间戳
         if (expires_in) {
             const expiresAt = Date.now() + expires_in * MS_PER_SECOND;
@@ -149,10 +137,10 @@ export const authService = {
 
     /**
      * 清除 token
+     * refresh_token 由后端通过 HttpOnly Cookie 管理，前端无需清除
      */
     clearToken: () => {
         localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
         localStorage.removeItem('token_expires_at');
         localStorage.removeItem('user_info');
     },
@@ -175,14 +163,6 @@ export const authService = {
      */
     getToken: () => {
         return localStorage.getItem('auth_token');
-    },
-
-    /**
-     * 获取 refresh token
-     * @returns {string|null} 刷新令牌
-     */
-    getRefreshToken: () => {
-        return localStorage.getItem('refresh_token');
     },
 
     /**
