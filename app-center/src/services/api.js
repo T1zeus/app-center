@@ -18,6 +18,8 @@ let isRefreshing = false;
 let refreshPromise = null;
 // 请求队列：存储等待 token 刷新完成的请求
 let pendingRequests = [];
+// 防止重复跳转登录页的标志
+let isRedirectingToLogin = false;
 
 /**
  * 辅助函数：保存请求配置的关键字段，避免 undefined 传播
@@ -41,7 +43,7 @@ function saveRequestConfig(originalRequest) {
 api.useRequestInterceptor(async (config) => {
   // 刷新 token 的请求不需要添加 access_token，也不需要检查过期
   const isTokenRequest = config.url === '/auth/token';
-  
+
   // 确保 GET/HEAD 请求没有 body
   const method = (config.method || 'GET').toUpperCase();
   if (method === 'GET' || method === 'HEAD') {
@@ -53,7 +55,7 @@ api.useRequestInterceptor(async (config) => {
       delete config.data;
     }
   }
-  
+
   // 检查 token 是否过期，如果过期且不是刷新 token 的请求，则先刷新
   if (!isTokenRequest && authService.isTokenExpired()) {
     if (!isRefreshing) {
@@ -83,7 +85,7 @@ api.useRequestInterceptor(async (config) => {
           // 刷新失败，拒绝所有挂起的请求
           const failedCallbacks = [...pendingRequests];
           pendingRequests = [];
-          
+
           failedCallbacks.forEach(callback => {
             try {
               // 传递 null 表示刷新失败
@@ -94,7 +96,7 @@ api.useRequestInterceptor(async (config) => {
               // 执行挂起请求失败，静默处理
             }
           });
-          
+
           isRefreshing = false;
           refreshPromise = null;
           // 不在这里直接跳转登录，让错误拦截器处理401错误
@@ -102,7 +104,7 @@ api.useRequestInterceptor(async (config) => {
           throw error;
         });
     }
-    
+
     // 如果正在刷新，将当前请求加入队列
     if (isRefreshing && refreshPromise) {
       return new Promise((resolve, reject) => {
@@ -113,7 +115,11 @@ api.useRequestInterceptor(async (config) => {
           if (isResolved) return;
           if (!token) {
             isResolved = true;
-            reject(new Error('token已失效，请重新登陆'));
+            const tokenRefreshError = new Error('token已失效，请重新登录');
+            // 标记为 token 刷新失败，避免重复显示错误
+            tokenRefreshError.isTokenRefreshFailed = true;
+            tokenRefreshError.shouldRedirectToLogin = true;
+            reject(tokenRefreshError);
             return;
           }
 
@@ -138,7 +144,11 @@ api.useRequestInterceptor(async (config) => {
         refreshPromise.catch(() => {
           if (!isResolved) {
             isResolved = true;
-            reject(new Error('token已失效，请重新登陆'));
+            const tokenRefreshError = new Error('token已失效，请重新登录');
+            // 标记为 token 刷新失败，避免重复显示错误
+            tokenRefreshError.isTokenRefreshFailed = true;
+            tokenRefreshError.shouldRedirectToLogin = true;
+            reject(tokenRefreshError);
           }
         });
       });
@@ -206,6 +216,19 @@ api.useResponseInterceptor(async (response) => {
 // 错误拦截器 - 全局错误处理
 // 注意：错误拦截器需要在 request.js 中特殊处理
 const errorInterceptor = async (error) => {
+  // 检查是否是 token 刷新失败导致的错误（不显示错误消息，直接跳转登录）
+  if (error.isTokenRefreshFailed || error.shouldRedirectToLogin) {
+    // 使用防抖标志，防止多个请求同时失败时重复跳转
+    if (!isRedirectingToLogin) {
+      isRedirectingToLogin = true;
+      authService.clearToken();
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
+    }
+    throw error;
+  }
+
   // 如果状态码是 200-299，说明实际上是成功响应，不应该被当作错误处理
   // 这种情况可能是响应拦截器处理时出现了问题，但响应本身是成功的
   if (error.status && error.status >= 200 && error.status < 300) {
@@ -221,12 +244,12 @@ const errorInterceptor = async (error) => {
     // 不抛出错误，直接返回响应
     return response;
   }
-  
+
   // 检查是否是 token 请求（登录/刷新 token）
   // 对于 token 请求的错误，不显示全局错误消息，让调用方（登录页面）自己处理
-  const isTokenRequest = error.config?.url === '/auth/token' || 
+  const isTokenRequest = error.config?.url === '/auth/token' ||
                          error.config?.url?.includes('/auth/token');
-  
+
   // 处理 HTTP 错误（只处理非 2xx 状态码）
   if (error.status && error.status >= 400) {
     // 解析错误数据（可能是字符串格式的 JSON）
@@ -284,7 +307,10 @@ const errorInterceptor = async (error) => {
               if (isResolved) return;
               if (!token) {
                 isResolved = true;
-                reject(new Error('token已失效，请重新登陆'));
+                const tokenRefreshError = new Error('token已失效，请重新登录');
+                tokenRefreshError.isTokenRefreshFailed = true;
+                tokenRefreshError.shouldRedirectToLogin = true;
+                reject(tokenRefreshError);
                 return;
               }
 
@@ -304,7 +330,10 @@ const errorInterceptor = async (error) => {
             refreshPromise.catch(() => {
               if (!isResolved) {
                 isResolved = true;
-                reject(new Error('token已失效，请重新登陆'));
+                const tokenRefreshError = new Error('token已失效，请重新登录');
+                tokenRefreshError.isTokenRefreshFailed = true;
+                tokenRefreshError.shouldRedirectToLogin = true;
+                reject(tokenRefreshError);
               }
             });
           });
