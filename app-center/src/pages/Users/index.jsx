@@ -259,10 +259,14 @@ function Users() {
 
   const handlePasswordSubmit = async (values) => {
     if (!resettingPasswordUser) return;
-    
+
     try {
       // 管理员重置密码时，不需要 old_password
-      const owner = resettingPasswordUser.owner && resettingPasswordUser.owner !== '-' ? resettingPasswordUser.owner : null;
+      // 如果用户记录中没有 owner，使用当前登录用户的 owner（企业管理员场景）
+      let owner = resettingPasswordUser.owner && resettingPasswordUser.owner !== '-' ? resettingPasswordUser.owner : null;
+      if (!owner && userInfo?.owner) {
+        owner = userInfo.owner;
+      }
       if (!owner) {
         throw new Error('无法获取用户所属组织');
       }
@@ -271,7 +275,7 @@ function Users() {
         // old_password 可选，管理员重置时可不传
         ...(values.old_password && { old_password: values.old_password }),
       };
-      
+
       await userService.changePassword(owner, resettingPasswordUser.name, passwordParams);
       showSuccess('密码修改成功');
       setPasswordModalVisible(false);
